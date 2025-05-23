@@ -1,0 +1,85 @@
+# Task ID: 5
+# Title: Implement WACZ File Picker
+# Status: done
+# Dependencies: 2
+# Priority: medium
+# Description: Create a file picker interface using UIDocumentPickerViewController to allow users to select WACZ archives from the Files app.
+# Details:
+1. Add a button to trigger file selection
+2. Implement UIDocumentPickerViewController with WACZ file type filter:
+```swift
+func showFilePicker() {
+  let documentTypes = ["public.wacz"]
+  let picker = UIDocumentPickerViewController(forOpeningContentTypes: documentTypes.map { UTType(filenameExtension: $0)! })
+  picker.delegate = self
+  picker.allowsMultipleSelection = false
+  present(picker, animated: true)
+}
+
+// UIDocumentPickerDelegate
+func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+  guard let selectedFileURL = urls.first else { return }
+  
+  // Create destination directory if needed
+  let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+  let warcsDir = documentsDir.appendingPathComponent("warc-data")
+  try? FileManager.default.createDirectory(at: warcsDir, withIntermediateDirectories: true)
+  
+  // Generate unique filename
+  let filename = selectedFileURL.lastPathComponent
+  let destURL = warcsDir.appendingPathComponent(filename)
+  
+  // Copy file to app's documents directory
+  try? FileManager.default.copyItem(at: selectedFileURL, to: destURL)
+  
+  // Notify web app about the new archive
+  loadArchive(filename: filename)
+}
+
+func loadArchive(filename: String) {
+  let js = "window.location.href = 'http://localhost:8080/index.html?archive=/archives/\(filename)';"
+  webView.evaluateJavaScript(js)
+}
+```
+3. Register WACZ file type in Info.plist
+4. Handle file security scoped access
+5. Implement error handling for file operations
+
+# Test Strategy:
+1. Test file picker launches correctly
+2. Verify WACZ files are properly filtered in the picker
+3. Confirm selected files are correctly copied to the app's documents directory
+4. Check that the web app is notified of the new archive
+5. Test with various file sizes to ensure performance
+
+# Subtasks:
+## 1. Configure WACZ File Type Registration [done]
+### Dependencies: None
+### Description: Register the WACZ file type in Info.plist and configure the app to handle this file type properly
+### Details:
+Add UTType declaration for WACZ files in Info.plist under Document Types and Exported Type Identifiers. Define the proper MIME type, file extension (.wacz), and description. Ensure the app can recognize and handle WACZ files from the Files app.
+
+## 2. Implement File Picker UI Component [done]
+### Dependencies: 5.1
+### Description: Create a button in the UI that triggers the UIDocumentPickerViewController and implement the picker configuration
+### Details:
+Design and add a button to the app interface that will trigger the file picker. Implement the showFilePicker() method to properly configure UIDocumentPickerViewController with the correct UTType for WACZ files. Set appropriate presentation style and ensure delegate is properly assigned.
+
+## 3. Implement Security-Scoped Access Handling [done]
+### Dependencies: 5.2
+### Description: Add proper security-scoped access handling for selected files to ensure the app maintains access permissions
+### Details:
+Modify the documentPicker delegate method to implement security-scoped access by calling startAccessingSecurityScopedResource() on the selected URL before accessing it and stopAccessingSecurityScopedResource() after operations are complete. This ensures the app maintains proper access permissions to the selected file.
+
+## 4. Implement File Copy and Storage Logic [done]
+### Dependencies: 5.3
+### Description: Create the logic to safely copy selected WACZ files to the app's document directory with proper error handling
+### Details:
+Enhance the file copying logic to include proper error handling using do-catch blocks. Implement checks for existing files with the same name and create a strategy for handling duplicates (rename, overwrite, or prompt user). Ensure the destination directory exists before copying and handle potential file system errors.
+
+## 5. Implement Archive Loading and Notification System [done]
+### Dependencies: 5.4
+### Description: Create a robust system to notify the web view about newly added archives and handle loading errors
+### Details:
+Enhance the loadArchive method to include error handling and loading state management. Implement a callback mechanism to notify the app when the archive is successfully loaded in the web view. Add timeout handling and retry logic for cases where the web view doesn't respond. Create user feedback for loading progress and errors.
+

@@ -1,0 +1,564 @@
+{
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Project Setup and Configuration",
+      "description": "Initialize iOS project with proper configuration for WKWebView and App-Bound Domains to support Service Workers.",
+      "details": "1. Create a new iOS project using Swift and UIKit\n2. Configure Info.plist with WKAppBoundDomains:\n```xml\n<key>WKAppBoundDomains</key>\n<array>\n  <string>localhost</string>\n</array>\n```\n3. Add necessary frameworks and dependencies:\n   - WebKit.framework\n   - GCDWebServer (via CocoaPods or Swift Package Manager)\n4. Create basic folder structure:\n   - www/ (for ReplayWeb.page assets)\n   - Documents/warc-data/ (for user archives)\n5. Setup basic UI with a WKWebView as the main view",
+      "testStrategy": "1. Verify project builds successfully\n2. Confirm Info.plist contains correct WKAppBoundDomains entry\n3. Validate that all dependencies are properly linked\n4. Check that folder structure is created correctly on app initialization",
+      "priority": "high",
+      "dependencies": [],
+      "status": "done",
+      "subtasks": [
+        {
+          "id": 1,
+          "title": "Create New iOS Project with Swift and UIKit",
+          "description": "Initialize a new iOS project using Swift and UIKit as the base frameworks.",
+          "dependencies": [],
+          "details": "Open Xcode, select 'Create a new Xcode project', choose the App template, and ensure Swift and UIKit are selected as the language and interface options.",
+          "status": "done",
+          "testStrategy": "Verify that the project builds and runs successfully on a simulator or device, displaying the default launch screen."
+        },
+        {
+          "id": 2,
+          "title": "Configure Info.plist for WKAppBoundDomains",
+          "description": "Add the WKAppBoundDomains key to Info.plist to specify allowed domains for WKWebView and enable Service Worker support.",
+          "dependencies": [
+            1
+          ],
+          "details": "Edit Info.plist to include the WKAppBoundDomains array with 'localhost' as a string entry, ensuring proper XML formatting.",
+          "status": "done",
+          "testStrategy": "Check that the Info.plist contains the correct WKAppBoundDomains entry and that the app launches without configuration errors."
+        },
+        {
+          "id": 3,
+          "title": "Add Required Frameworks and Dependencies",
+          "description": "Integrate WebKit.framework and GCDWebServer into the project using CocoaPods or Swift Package Manager.",
+          "dependencies": [
+            1
+          ],
+          "details": "Add WebKit.framework to the project’s linked frameworks. Use CocoaPods or Swift Package Manager to add GCDWebServer, updating the Podfile or Package.swift as needed.",
+          "status": "done",
+          "testStrategy": "Build the project to confirm that WebKit and GCDWebServer are available and importable in Swift source files."
+        },
+        {
+          "id": 4,
+          "title": "Establish Project Folder Structure",
+          "description": "Create the necessary folders for web assets and user archives within the project directory.",
+          "dependencies": [
+            1
+          ],
+          "details": "Add a 'www/' folder for ReplayWeb.page assets and a 'Documents/warc-data/' folder for user archives, ensuring they are included in the project navigator.",
+          "status": "done",
+          "testStrategy": "Verify that both folders exist in the project directory and are accessible from the app’s file system."
+        },
+        {
+          "id": 5,
+          "title": "Implement Basic UI with WKWebView",
+          "description": "Set up the main user interface with a WKWebView as the primary view component.",
+          "dependencies": [
+            2,
+            3
+          ],
+          "details": "Add a WKWebView to the main view controller, configure it using WKWebViewConfiguration, and ensure it loads local or remote content as needed.",
+          "status": "done",
+          "testStrategy": "Run the app and confirm that the WKWebView appears and can successfully load a test HTML page."
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Implement Local HTTP Server",
+      "description": "Set up GCDWebServer to serve static assets and user-selected WACZ archives with support for range requests.",
+      "details": "1. Initialize GCDWebServer on app launch\n2. Configure server to serve content from www/ directory:\n```swift\nimport GCDWebServer\n\nfunc setupServer() {\n  let server = GCDWebServer()\n  \n  // Serve static assets\n  server.addGETHandler(\n    forBasePath: \"/\",\n    directoryPath: wwwBundlePath,\n    indexFilename: \"index.html\",\n    cacheAge: 0,\n    allowRangeRequests: true\n  )\n  \n  // Serve user archives\n  server.addGETHandler(\n    forBasePath: \"/archives\",\n    directoryPath: documentsWarcsPath,\n    indexFilename: nil,\n    cacheAge: 0,\n    allowRangeRequests: true\n  )\n  \n  // Start server on localhost\n  server.start(withPort: 8080, bonjourName: nil)\n}\n```\n3. Ensure server is bound only to loopback interface for security\n4. Implement proper error handling and logging\n5. Create a singleton class to manage server lifecycle",
+      "testStrategy": "1. Verify server starts successfully on app launch\n2. Test that static files are served correctly from www/ directory\n3. Confirm range requests work by requesting partial content with Range header\n4. Check server is only accessible from localhost\n5. Validate server restarts properly after app background/foreground cycle",
+      "priority": "high",
+      "dependencies": [
+        1
+      ],
+      "status": "done",
+      "subtasks": [
+        {
+          "id": 1,
+          "title": "Create GCDWebServer Singleton Class",
+          "description": "Implement a singleton class to manage the GCDWebServer lifecycle including initialization, configuration, and shutdown",
+          "dependencies": [],
+          "details": "Create a WebServerManager class with static shared instance, server property, setup/start/stop methods, and proper memory management. Include status tracking to prevent multiple start attempts and handle app background/foreground transitions.",
+          "status": "done",
+          "testStrategy": "Verify singleton behavior by attempting multiple instance creation. Test server starts/stops correctly and maintains expected state across app lifecycle events."
+        },
+        {
+          "id": 2,
+          "title": "Configure Static Asset Serving",
+          "description": "Set up the server to properly serve static assets from the www/ directory with appropriate caching and range request support",
+          "dependencies": [
+            1
+          ],
+          "details": "Implement the handler for serving static content from www/ directory with index.html as default. Ensure proper MIME type detection, set cacheAge to 0 for development, and enable allowRangeRequests for media streaming support. Verify path resolution is secure and doesn't allow directory traversal.",
+          "status": "done",
+          "testStrategy": "Test accessing various file types (HTML, CSS, JS, images) via browser. Verify range requests work by testing video/audio streaming. Check cache headers in responses."
+        },
+        {
+          "id": 3,
+          "title": "Implement WACZ Archive Serving",
+          "description": "Configure the server to serve user-selected WACZ archives from the documents directory with range request support",
+          "dependencies": [
+            1
+          ],
+          "details": "Add handler for /archives path pointing to documentsWarcsPath. Implement proper file extension filtering to only serve .wacz files. Ensure correct Content-Type headers and enable range requests for efficient archive access. Add directory listing capability if needed.",
+          "status": "done",
+          "testStrategy": "Test accessing WACZ files through the server. Verify large archives can be accessed efficiently with range requests. Test with invalid file types to ensure proper security."
+        },
+        {
+          "id": 4,
+          "title": "Implement Security Constraints",
+          "description": "Ensure the server is bound only to the loopback interface and implement proper security measures",
+          "dependencies": [
+            1
+          ],
+          "details": "Configure server to only bind to 127.0.0.1 (localhost) using server.start(withPort: 8080, bonjourName: nil). Add options dictionary with GCDWebServerOption_BindToLocalhost set to true. Implement request validation to prevent unauthorized access and potential security vulnerabilities.",
+          "status": "done",
+          "testStrategy": "Verify server is not accessible from other devices on the network. Test with security scanning tools to check for common vulnerabilities. Attempt to access files outside permitted directories."
+        },
+        {
+          "id": 5,
+          "title": "Add Error Handling and Logging",
+          "description": "Implement comprehensive error handling and logging for server operations",
+          "dependencies": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "details": "Create a logging system that captures server events, errors, and access attempts. Implement error handling for server startup failures, file access issues, and unexpected shutdowns. Add recovery mechanisms to restart the server if it crashes. Include user-facing error messages for critical failures.",
+          "status": "done",
+          "testStrategy": "Force various error conditions (invalid ports, missing directories, permission issues) and verify appropriate logging and recovery. Test log output format and content for debugging usefulness."
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Bundle ReplayWeb.page Assets",
+      "description": "Build and bundle the ReplayWeb.page PWA assets into the iOS app for offline use.",
+      "details": "1. Clone the ReplayWeb.page repository\n2. Build the web application:\n```bash\ncd replayweb.page\nnpm install\nnpm run build\n```\n3. Copy built assets to the iOS project:\n```bash\ncp -R dist/* ../MyApp/www/\n```\n4. Ensure Service Worker registration is included in index.html:\n```html\n<script>\n  navigator.serviceWorker.register('/sw.js').then(() => console.log('SW registered'));\n</script>\n```\n5. Create a build script to automate this process for future updates\n6. Add these files to the Xcode project to ensure they're bundled with the app",
+      "testStrategy": "1. Verify all necessary files are copied to www/ directory\n2. Check that index.html contains Service Worker registration code\n3. Validate that sw.js is present and contains the correct code\n4. Ensure all JavaScript, CSS, and other assets are properly included",
+      "priority": "high",
+      "dependencies": [
+        1
+      ],
+      "status": "done",
+      "subtasks": [
+        {
+          "id": 1,
+          "title": "Implement iOS-specific PWA caching strategy",
+          "description": "Modify the service worker to implement an appropriate caching strategy that works reliably on iOS devices",
+          "dependencies": [],
+          "details": "Research and implement a cache-first or cache-only strategy in the service worker that addresses iOS-specific caching issues. Ensure the service worker properly handles offline scenarios by precaching essential resources during installation and serving cached content when network is unavailable.",
+          "status": "done",
+          "testStrategy": "Test the PWA in iOS Safari and as an installed home screen app in both online and offline modes to verify assets are properly cached and accessible"
+        },
+        {
+          "id": 2,
+          "title": "Configure offline support settings for iOS",
+          "description": "Ensure PWA offline support is properly configured for iOS devices",
+          "dependencies": [
+            1
+          ],
+          "details": "Review and modify the PWA manifest and configuration to ensure offline support is enabled specifically for iOS. Check that the service worker registration in index.html is compatible with iOS Safari and that cache storage permissions are properly handled.",
+          "status": "done",
+          "testStrategy": "Test the PWA on iOS devices by enabling airplane mode after initial load to verify offline functionality"
+        },
+        {
+          "id": 3,
+          "title": "Optimize asset bundling for iOS performance",
+          "description": "Optimize the bundled assets to ensure optimal performance on iOS devices",
+          "dependencies": [
+            1,
+            2
+          ],
+          "details": "Analyze and optimize the size of bundled assets, implement resource prioritization, and ensure critical assets are precached. Consider implementing resource hints like preload and prefetch for essential assets to improve initial load performance on iOS.",
+          "status": "done",
+          "testStrategy": "Use Safari Web Inspector to analyze network requests, cache storage usage, and overall performance metrics"
+        },
+        {
+          "id": 4,
+          "title": "Implement periodic cache updates",
+          "description": "Create a mechanism to periodically update cached assets when online",
+          "dependencies": [
+            1,
+            2
+          ],
+          "details": "Implement a strategy to periodically check for and update cached assets when the device is online. This ensures that the PWA can serve reasonably fresh responses even when offline. Consider using the Periodic Background Sync API if supported.",
+          "status": "done",
+          "testStrategy": "Test by publishing updates to the web app and verifying that the iOS app receives the updates after reconnecting to the internet"
+        },
+        {
+          "id": 5,
+          "title": "Create iOS-specific fallback mechanisms",
+          "description": "Implement fallback mechanisms for uncached resources on iOS",
+          "dependencies": [
+            1,
+            2,
+            3
+          ],
+          "details": "Develop fallback strategies for handling requests to uncached resources when offline. Create custom offline pages or responses for different types of content. Ensure the iOS app gracefully handles scenarios where requested resources are not available in the cache.",
+          "status": "done",
+          "testStrategy": "Test by requesting uncached resources while offline and verifying appropriate fallback content is displayed"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Configure WKWebView with Service Worker Support",
+      "description": "Set up WKWebView to load content from the local HTTP server with proper configuration for Service Worker support.",
+      "details": "1. Create and configure WKWebView:\n```swift\nfunc setupWebView() {\n  let config = WKWebViewConfiguration()\n  config.limitsNavigationsToAppBoundDomains = true\n  config.websiteDataStore = .default()\n  \n  webView = WKWebView(frame: view.bounds, configuration: config)\n  webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]\n  view.addSubview(webView)\n  \n  // Load initial page\n  if let url = URL(string: \"http://localhost:8080/index.html\") {\n    webView.load(URLRequest(url: url))\n  }\n}\n```\n2. Add WKNavigationDelegate to handle navigation events\n3. Implement JavaScript message handlers if needed for communication\n4. Add error handling for page load failures\n5. Ensure proper cleanup of WebKit data store when needed",
+      "testStrategy": "1. Verify WKWebView loads the index.html from local server\n2. Use Safari Web Inspector to confirm Service Worker is registered\n3. Check console logs for any errors during page load\n4. Test that limitsNavigationsToAppBoundDomains is working correctly\n5. Validate that the WebView renders correctly on different device sizes",
+      "priority": "high",
+      "dependencies": [
+        2,
+        3
+      ],
+      "status": "done",
+      "subtasks": [
+        {
+          "id": 1,
+          "title": "Configure App-Bound Domains in Info.plist",
+          "description": "Add the WKAppBoundDomains key to Info.plist to enable Service Worker support for specific domains including localhost.",
+          "dependencies": [],
+          "details": "Add the WKAppBoundDomains array to Info.plist with entries for trusted domains (up to 10) including 'localhost'. This is required since iOS 14 to enable Service Worker functionality in WKWebView. Ensure limitsNavigationsToAppBoundDomains is set to true in the WKWebViewConfiguration.",
+          "status": "done",
+          "testStrategy": "Verify Info.plist contains the WKAppBoundDomains key with proper domain entries including localhost."
+        },
+        {
+          "id": 2,
+          "title": "Implement Custom WKURLSchemeHandler",
+          "description": "Create a custom URL scheme handler to properly intercept and handle Service Worker requests.",
+          "dependencies": [
+            1
+          ],
+          "details": "Implement a WKURLSchemeHandler subclass that can properly handle Service Worker registration and activation requests. Register this handler with the WKWebViewConfiguration using setURLSchemeHandler(_:forURLScheme:) method before initializing the WKWebView.",
+          "status": "done",
+          "testStrategy": "Test by attempting to register a Service Worker in the web content and verify registration succeeds."
+        },
+        {
+          "id": 3,
+          "title": "Modify WebKit Data Store Configuration",
+          "description": "Configure the WebKit data store to properly persist Service Worker data between app sessions.",
+          "dependencies": [
+            1
+          ],
+          "details": "Use a non-ephemeral WKWebsiteDataStore to ensure Service Worker data persists. Configure the data store with appropriate cache policies and storage quotas. Add code to handle data store cleanup when needed while preserving Service Worker registrations.",
+          "status": "done",
+          "testStrategy": "Test persistence by registering a Service Worker, restarting the app, and verifying the Service Worker remains registered."
+        },
+        {
+          "id": 4,
+          "title": "Implement Service Worker Debugging Support",
+          "description": "Add debugging capabilities to monitor Service Worker lifecycle and troubleshoot issues.",
+          "dependencies": [
+            2,
+            3
+          ],
+          "details": "Enable remote debugging by adding NSAllowsLocalNetworking and NSAllowsArbitraryLoadsInWebContent to App Transport Security settings. Implement JavaScript interfaces to monitor Service Worker registration, activation, and error events. Add logging for Service Worker lifecycle events.",
+          "status": "done",
+          "testStrategy": "Connect Safari Web Inspector to debug Service Workers and verify lifecycle events are properly logged."
+        },
+        {
+          "id": 5,
+          "title": "Handle Service Worker Fallback Mechanisms",
+          "description": "Implement fallback strategies for environments where Service Workers are not supported.",
+          "dependencies": [
+            4
+          ],
+          "details": "Add detection code to check if Service Workers are available in the current WKWebView environment. Implement alternative caching and offline functionality using IndexedDB, LocalStorage, or Cookies when Service Workers are unavailable. Create a JavaScript bridge to communicate Service Worker support status to the web content.",
+          "status": "done",
+          "testStrategy": "Test on devices with and without Service Worker support to verify fallback mechanisms work correctly."
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Implement WACZ File Picker",
+      "description": "Create a file picker interface using UIDocumentPickerViewController to allow users to select WACZ archives from the Files app.",
+      "details": "1. Add a button to trigger file selection\n2. Implement UIDocumentPickerViewController with WACZ file type filter:\n```swift\nfunc showFilePicker() {\n  let documentTypes = [\"public.wacz\"]\n  let picker = UIDocumentPickerViewController(forOpeningContentTypes: documentTypes.map { UTType(filenameExtension: $0)! })\n  picker.delegate = self\n  picker.allowsMultipleSelection = false\n  present(picker, animated: true)\n}\n\n// UIDocumentPickerDelegate\nfunc documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {\n  guard let selectedFileURL = urls.first else { return }\n  \n  // Create destination directory if needed\n  let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!\n  let warcsDir = documentsDir.appendingPathComponent(\"warc-data\")\n  try? FileManager.default.createDirectory(at: warcsDir, withIntermediateDirectories: true)\n  \n  // Generate unique filename\n  let filename = selectedFileURL.lastPathComponent\n  let destURL = warcsDir.appendingPathComponent(filename)\n  \n  // Copy file to app's documents directory\n  try? FileManager.default.copyItem(at: selectedFileURL, to: destURL)\n  \n  // Notify web app about the new archive\n  loadArchive(filename: filename)\n}\n\nfunc loadArchive(filename: String) {\n  let js = \"window.location.href = 'http://localhost:8080/index.html?archive=/archives/\\(filename)';\"\n  webView.evaluateJavaScript(js)\n}\n```\n3. Register WACZ file type in Info.plist\n4. Handle file security scoped access\n5. Implement error handling for file operations",
+      "testStrategy": "1. Test file picker launches correctly\n2. Verify WACZ files are properly filtered in the picker\n3. Confirm selected files are correctly copied to the app's documents directory\n4. Check that the web app is notified of the new archive\n5. Test with various file sizes to ensure performance",
+      "priority": "medium",
+      "dependencies": [
+        2
+      ],
+      "status": "done",
+      "subtasks": [
+        {
+          "id": 1,
+          "title": "Configure WACZ File Type Registration",
+          "description": "Register the WACZ file type in Info.plist and configure the app to handle this file type properly",
+          "dependencies": [],
+          "details": "Add UTType declaration for WACZ files in Info.plist under Document Types and Exported Type Identifiers. Define the proper MIME type, file extension (.wacz), and description. Ensure the app can recognize and handle WACZ files from the Files app.",
+          "status": "done",
+          "testStrategy": "Verify WACZ files appear selectable in the Files app when using the document picker. Test by adding a sample WACZ file to Files and confirming it's visible in the picker."
+        },
+        {
+          "id": 2,
+          "title": "Implement File Picker UI Component",
+          "description": "Create a button in the UI that triggers the UIDocumentPickerViewController and implement the picker configuration",
+          "dependencies": [
+            1
+          ],
+          "details": "Design and add a button to the app interface that will trigger the file picker. Implement the showFilePicker() method to properly configure UIDocumentPickerViewController with the correct UTType for WACZ files. Set appropriate presentation style and ensure delegate is properly assigned.",
+          "status": "done",
+          "testStrategy": "Test that tapping the button launches the Files app interface. Verify the picker is configured to only show WACZ files."
+        },
+        {
+          "id": 3,
+          "title": "Implement Security-Scoped Access Handling",
+          "description": "Add proper security-scoped access handling for selected files to ensure the app maintains access permissions",
+          "dependencies": [
+            2
+          ],
+          "details": "Modify the documentPicker delegate method to implement security-scoped access by calling startAccessingSecurityScopedResource() on the selected URL before accessing it and stopAccessingSecurityScopedResource() after operations are complete. This ensures the app maintains proper access permissions to the selected file.",
+          "status": "done",
+          "testStrategy": "Test by selecting files from different locations (iCloud Drive, On My iPhone, etc.) and verify the app can access them without permission errors."
+        },
+        {
+          "id": 4,
+          "title": "Implement File Copy and Storage Logic",
+          "description": "Create the logic to safely copy selected WACZ files to the app's document directory with proper error handling",
+          "dependencies": [
+            3
+          ],
+          "details": "Enhance the file copying logic to include proper error handling using do-catch blocks. Implement checks for existing files with the same name and create a strategy for handling duplicates (rename, overwrite, or prompt user). Ensure the destination directory exists before copying and handle potential file system errors.",
+          "status": "done",
+          "testStrategy": "Test with various file sizes, test with duplicate filenames, and verify error handling by simulating disk space issues."
+        },
+        {
+          "id": 5,
+          "title": "Implement Archive Loading and Notification System",
+          "description": "Create a robust system to notify the web view about newly added archives and handle loading errors",
+          "dependencies": [
+            4
+          ],
+          "details": "Enhance the loadArchive method to include error handling and loading state management. Implement a callback mechanism to notify the app when the archive is successfully loaded in the web view. Add timeout handling and retry logic for cases where the web view doesn't respond. Create user feedback for loading progress and errors.",
+          "status": "done",
+          "testStrategy": "Test with valid and invalid WACZ files. Verify loading indicators appear correctly. Test network interruptions during loading to ensure proper error handling."
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Implement Archive Management",
+      "description": "Create functionality to manage imported WACZ archives, including listing, deleting, and providing metadata.",
+      "details": "1. Create a model to represent archive metadata:\n```swift\nstruct ArchiveInfo {\n  let filename: String\n  let path: URL\n  let size: Int64\n  let importDate: Date\n}\n```\n2. Implement functions to list available archives:\n```swift\nfunc listArchives() -> [ArchiveInfo] {\n  let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!\n  let warcsDir = documentsDir.appendingPathComponent(\"warc-data\")\n  \n  guard let fileURLs = try? FileManager.default.contentsOfDirectory(at: warcsDir, includingPropertiesForKeys: [.fileSizeKey, .creationDateKey]) else {\n    return []\n  }\n  \n  return fileURLs.compactMap { url in\n    guard url.pathExtension == \"wacz\" else { return nil }\n    let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)\n    let size = attributes?[.size] as? Int64 ?? 0\n    let date = attributes?[.creationDate] as? Date ?? Date()\n    return ArchiveInfo(filename: url.lastPathComponent, path: url, size: size, importDate: date)\n  }\n}\n```\n3. Add functionality to delete archives\n4. Create a simple UI to display available archives\n5. Implement JavaScript bridge to communicate archive list to web app",
+      "testStrategy": "1. Verify archives are correctly listed after import\n2. Test deletion functionality works correctly\n3. Check that archive metadata (size, date) is accurate\n4. Validate UI updates when archives are added or removed\n5. Test with multiple archives to ensure proper management",
+      "priority": "medium",
+      "dependencies": [
+        5
+      ],
+      "status": "pending",
+      "subtasks": [
+        {
+          "id": 1,
+          "title": "Implement Archive Deletion Functionality",
+          "description": "Create a function to safely delete WACZ archives from the file system",
+          "dependencies": [],
+          "details": "Develop a deleteArchive(archiveInfo: ArchiveInfo) function that removes the specified archive file from the warc-data directory. Include error handling for file system operations and ensure proper cleanup of any related resources. Consider implementing a confirmation mechanism before deletion to prevent accidental data loss.",
+          "status": "pending",
+          "testStrategy": "Test with valid and invalid archive paths, verify file removal, and check error handling for non-existent files and permission issues."
+        },
+        {
+          "id": 2,
+          "title": "Extract and Store Archive Metadata",
+          "description": "Enhance ArchiveInfo model to include additional WARC metadata from the archive",
+          "dependencies": [],
+          "details": "Extend the ArchiveInfo struct to include additional metadata fields such as crawl date, number of records, domains covered, and total size of contained resources. Implement a function to extract this metadata from WACZ files following WARC implementation guidelines. Store this metadata efficiently to avoid repeated extraction.",
+          "status": "pending",
+          "testStrategy": "Test with various WACZ files containing different metadata structures, verify correct extraction of all fields, and check performance with large archives."
+        },
+        {
+          "id": 3,
+          "title": "Create Archive List UI Component",
+          "description": "Develop a user interface to display and manage available archives",
+          "dependencies": [
+            1,
+            2
+          ],
+          "details": "Design and implement a SwiftUI view that displays the list of available archives with their metadata. Include sorting options (by date, size, name), search functionality, and action buttons for deletion. The UI should be responsive and provide visual feedback during operations.",
+          "status": "pending",
+          "testStrategy": "Test UI rendering with various screen sizes, verify sorting and filtering functionality, and ensure proper display of archive metadata."
+        },
+        {
+          "id": 4,
+          "title": "Implement JavaScript Bridge for Archive Communication",
+          "description": "Create a bridge to expose archive information to the web application",
+          "dependencies": [
+            2
+          ],
+          "details": "Develop a JavaScript bridge using Swift's interoperability features to expose archive metadata and management functions to the web application. Implement methods to retrieve the archive list, get detailed metadata, and trigger deletion. Ensure proper serialization of Swift types to JavaScript-compatible formats.",
+          "status": "pending",
+          "testStrategy": "Test bidirectional communication between Swift and JavaScript, verify correct data serialization, and check error handling for invalid operations."
+        },
+        {
+          "id": 5,
+          "title": "Add Archive Import Validation and Error Handling",
+          "description": "Implement validation checks for imported archives and robust error handling",
+          "dependencies": [
+            2
+          ],
+          "details": "Create a validation system that checks imported WACZ files for integrity and compatibility. Implement comprehensive error handling for various failure scenarios during import, listing, and deletion operations. Develop a logging mechanism to track archive management operations for debugging purposes.",
+          "status": "pending",
+          "testStrategy": "Test with corrupted archives, simulate various error conditions, verify appropriate error messages, and check that the system recovers gracefully from failures."
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Implement Offline Functionality",
+      "description": "Ensure the app works fully offline by properly caching assets and handling Service Worker lifecycle.",
+      "details": "1. Implement proper Service Worker lifecycle management:\n```swift\n// Check if Service Worker is registered\nlet checkSWScript = \"\"\"\nnavigator.serviceWorker.getRegistrations().then(registrations => {\n  window.webkit.messageHandlers.swStatus.postMessage({\n    registered: registrations.length > 0,\n    registrations: registrations.map(r => r.scope)\n  });\n});\n\"\"\"\n\n// Add message handler\nconfig.userContentController.add(self, name: \"swStatus\")\n```\n2. Handle app state transitions to ensure Service Worker stays active:\n```swift\nfunc applicationDidEnterBackground(_ application: UIApplication) {\n  // Keep server running if possible\n  backgroundTask = UIApplication.shared.beginBackgroundTask()\n}\n\nfunc applicationWillEnterForeground(_ application: UIApplication) {\n  // Ensure server is still running\n  if !server.isRunning {\n    setupServer()\n  }\n  \n  // Reload webview if needed\n  webView.reload()\n}\n```\n3. Implement cache management for offline access\n4. Add network status monitoring to inform user about offline mode\n5. Ensure proper error handling for offline scenarios",
+      "testStrategy": "1. Test app in airplane mode after initial setup\n2. Verify content loads from Service Worker cache when offline\n3. Test app behavior when transitioning between online/offline states\n4. Check app behavior after background/foreground cycles\n5. Validate that large archives can be accessed offline without issues",
+      "priority": "high",
+      "dependencies": [
+        4,
+        5
+      ],
+      "status": "in-progress",
+      "subtasks": [
+        {
+          "id": 1,
+          "title": "Implement Service Worker Lifecycle Management",
+          "description": "Set up and manage the Service Worker registration, activation, and update processes to ensure reliable offline support.",
+          "dependencies": [],
+          "details": "Write scripts to check Service Worker registration status, handle updates, and manage activation. Integrate message handlers to communicate Service Worker status to the app.",
+          "status": "pending",
+          "testStrategy": "Simulate Service Worker registration, update, and removal scenarios. Verify correct status reporting and lifecycle transitions."
+        },
+        {
+          "id": 2,
+          "title": "Manage App State Transitions for Offline Support",
+          "description": "Handle app backgrounding and foregrounding to maintain Service Worker activity and ensure seamless offline operation.",
+          "dependencies": [
+            1
+          ],
+          "details": "Implement logic to keep background tasks running when the app enters the background and to restart necessary services and reload views when returning to the foreground.",
+          "status": "pending",
+          "testStrategy": "Test app transitions between background and foreground states, ensuring Service Worker remains active and offline functionality persists."
+        },
+        {
+          "id": 3,
+          "title": "Implement Asset and Data Caching",
+          "description": "Cache essential assets and data to enable full offline functionality and quick loading.",
+          "dependencies": [
+            1
+          ],
+          "details": "Use Service Worker and local storage mechanisms to cache static assets, API responses, and user data. Ensure cache is updated appropriately when online.",
+          "status": "pending",
+          "testStrategy": "Switch device to offline mode and verify that all necessary assets and data are accessible and up-to-date."
+        },
+        {
+          "id": 4,
+          "title": "Monitor Network Status and Inform Users",
+          "description": "Detect changes in network connectivity and provide clear offline/online indicators to users.",
+          "dependencies": [
+            3
+          ],
+          "details": "Implement network status monitoring using system APIs. Display UI indicators or notifications to inform users when the app is offline or regains connectivity.",
+          "status": "pending",
+          "testStrategy": "Toggle network connectivity and confirm that the app accurately reflects the current status and informs the user appropriately."
+        },
+        {
+          "id": 5,
+          "title": "Handle Errors and Edge Cases in Offline Scenarios",
+          "description": "Implement robust error handling for offline operations, including data conflicts, failed requests, and sync issues.",
+          "dependencies": [
+            3,
+            4
+          ],
+          "details": "Gracefully handle errors such as failed network requests, data sync conflicts, and cache misses. Provide user feedback and options for conflict resolution.",
+          "status": "pending",
+          "testStrategy": "Simulate offline errors and sync conflicts. Verify that errors are handled gracefully and users are guided to resolve issues."
+        },
+        {
+          "id": 6,
+          "title": "Fix UIKit Import and Dependency Issues",
+          "description": "Resolve the 'No such module UIKit' errors and fix build issues in the iOS project to ensure offline functionality works correctly",
+          "details": "This subtask involves:\n1. Fixing import statements in AppDelegate.swift, FilePicker.swift, and MainViewController.swift\n2. Resolving build configuration issues that may be causing the UIKit module not to be found\n3. Ensuring proper project settings and framework linkage\n4. Testing the build process to verify the fixes work correctly\n5. Ensuring offline functionality works as expected after fixes\n<info added on 2025-05-19T20:12:56.124Z>\nThis subtask involves:\n\n1. Fixing import statements in AppDelegate.swift, FilePicker.swift, and MainViewController.swift\n2. Resolving build configuration issues that may be causing the UIKit module not to be found\n3. Ensuring proper project settings and framework linkage\n4. Testing the build process to verify the fixes work correctly\n5. Ensuring offline functionality works as expected after fixes\n\nBased on analysis of the project structure, this is a Capacitor-based iOS project with specific requirements for module imports. The 'No such module UIKit' errors are likely due to project configuration issues rather than just import syntax. The implementation approach will include:\n\n1. Restoring the original import statements without conditional compilation in affected files\n2. Checking and updating the project's build settings, particularly framework search paths and linked libraries\n3. Ensuring proper CocoaPods integration by verifying Podfile configuration and running pod install\n4. Cleaning derived data and rebuilding the project to eliminate cached build artifacts\n5. Testing the offline functionality after fixes to ensure it works correctly within the Capacitor framework\n</info added on 2025-05-19T20:12:56.124Z>\n<info added on 2025-05-19T20:14:40.879Z>\nAfter running pod install and attempting to build the project, we're now encountering different errors. The UIKit import errors may be resolving, but we're now seeing errors related to missing classes like WebServerManager and MainViewController.\n\nOur next steps will be:\n1. Checking if these classes exist in the project\n2. Ensuring all necessary Swift files are included in the target\n3. Fixing any circular dependencies between files\n4. Implementing any missing classes that are required for the offline functionality\n\nThis suggests we're making progress on the UIKit import issues but now need to focus on class implementation and project structure issues. We'll need to:\n\n1. Search the codebase for WebServerManager and MainViewController implementations\n2. Check the project's target membership settings to ensure all required Swift files are included\n3. Review import statements for circular dependencies that might be causing compilation failures\n4. Create stubs or implementations for any missing classes that are essential for offline functionality\n5. Consider whether these classes should be part of the main app or a separate module/framework\n6. Update the build process documentation to include these additional steps for future reference\n</info added on 2025-05-19T20:14:40.879Z>\n<info added on 2025-05-19T20:15:51.927Z>\nAfter examining the project structure, I've identified a potential cause of our import issues: there are multiple versions of @capacitor/ios in the project (v3.9.0 and v7.2.0), which could be causing conflicts with framework imports.\n\nThe version conflict in Capacitor dependencies is likely the root cause of our UIKit import issues and subsequent class resolution problems. This explains why we're seeing inconsistent behavior with imports and missing classes.\n\nTo resolve these issues, I'll take the following systematic approach:\n\n1. Audit all Capacitor dependencies in package.json and pod files to identify version conflicts\n2. Standardize on a single version of @capacitor/ios (preferably the latest stable v7.2.0)\n3. Clean the node_modules directory and reinstall dependencies with a consistent version\n4. Update the Podfile to ensure it references the correct Capacitor version\n5. Run pod deintegrate followed by pod install to ensure clean framework linking\n6. Check the Xcode project settings to verify proper framework search paths\n7. Update import statements in problematic files to match the Capacitor framework structure\n8. Rebuild the project with the corrected configuration\n9. Test offline functionality to ensure it works with the updated dependencies\n\nThis approach addresses both the immediate UIKit import errors and the underlying dependency conflicts that are likely causing our build issues.\n</info added on 2025-05-19T20:15:51.927Z>\n<info added on 2025-05-19T20:17:04.820Z>\nWe've made significant progress on resolving the dependency issues. After identifying the Capacitor version conflicts and examining the project structure, we've successfully run pod install with the correct UTF-8 encoding. This is a critical step in resolving the framework import issues that were causing the 'No such module UIKit' errors.\n\nOur implementation plan is now focused on completing the fix with these specific steps:\n\n1. Clean the build folder to remove any cached artifacts that might be causing persistent errors\n2. Review and update import statements in AppDelegate.swift, FilePicker.swift, and MainViewController.swift to ensure they're compatible with the current Capacitor version\n3. Build the project to verify our fixes have resolved the UIKit import errors\n4. Test the offline functionality comprehensively to ensure it works correctly after these changes\n\nThis approach should complete the resolution of our dependency issues while ensuring the offline functionality (which is the parent task's goal) works as expected. We'll document any additional findings during testing to help prevent similar issues in the future.\n</info added on 2025-05-19T20:17:04.820Z>\n<info added on 2025-05-19T20:18:37.583Z>\nAfter further investigation, we've determined that the UIKit import issues are more complex than initially thought, requiring a more comprehensive approach. The errors persist even after addressing Capacitor version conflicts, and we're now seeing additional errors related to class references in AppDelegate.swift.\n\nOur updated implementation plan includes:\n\n1. Creating a module map file to properly expose UIKit to the project:\n   - Add a modulemap file in the project directory\n   - Configure the module map to explicitly include UIKit\n   - Update build settings to reference this module map\n\n2. Implementing a consistent approach for all import statements:\n   - Review all Swift files for import inconsistencies\n   - Standardize import statements across AppDelegate.swift, FilePicker.swift, and MainViewController.swift\n   - Remove any conditional compilation blocks that might be causing conflicts\n   - Ensure imports follow the same pattern throughout the codebase\n\n3. Fixing class references and improving file organization:\n   - Resolve reference issues in AppDelegate.swift\n   - Ensure proper class hierarchy and inheritance\n   - Verify that all required classes are properly defined and accessible\n   - Organize files logically to prevent circular dependencies\n\n4. Implementing a clean rebuild process:\n   - Clear derived data completely\n   - Run a full pod deintegrate and reinstall\n   - Rebuild the project with the new configuration\n   - Verify that all UIKit import errors are resolved\n\n5. Testing offline functionality thoroughly:\n   - Ensure the app can transition to offline mode\n   - Verify data persistence works correctly\n   - Test synchronization when returning online\n   - Confirm all offline features function as expected\n\nThis comprehensive approach addresses the root causes of our import issues while ensuring the offline functionality (the parent task's goal) works correctly after implementation.\n</info added on 2025-05-19T20:18:37.583Z>\n<info added on 2025-05-19T20:19:46.950Z>\nAfter multiple attempts to fix the import issues through code changes, we've determined that we need to focus on the underlying Xcode project configuration. The persistent \"No such module 'UIKit'\" errors suggest a more fundamental issue with how the project is set up rather than just import syntax problems.\n\nOur solution will now address the root cause by focusing on the project configuration:\n\n1. Check and update the project's build settings:\n   - Verify and correct the framework search paths to ensure UIKit is properly located\n   - Check the \"Header Search Paths\" setting to ensure it includes all necessary directories\n   - Confirm that \"Always Search User Paths\" is set appropriately\n\n2. Verify target membership of all Swift files:\n   - Ensure all Swift files are correctly included in the appropriate target\n   - Check for files that might be included in multiple targets causing conflicts\n   - Verify that AppDelegate.swift, FilePicker.swift, and MainViewController.swift are properly assigned\n\n3. Ensure proper project configuration:\n   - Verify the deployment target is set correctly for the iOS version we're supporting\n   - Check that the SDK settings match our development requirements\n   - Confirm the project's architecture settings are appropriate\n\n4. Implement a clean rebuild process:\n   - Delete the derived data folder completely to eliminate cached build artifacts\n   - Run a full clean build to ensure all dependencies are properly rebuilt\n   - Verify the build succeeds without UIKit import errors\n\nThis approach focuses on the project configuration rather than code changes, which should address the persistent import issues at their source and ensure the offline functionality works correctly after implementation.\n</info added on 2025-05-19T20:19:46.950Z>\n<info added on 2025-05-19T20:20:49.299Z>\nWe've made a breakthrough in resolving the UIKit import issues by creating a bridging header file. This approach is particularly effective for mixed Objective-C/Swift codebases and when dealing with framework visibility problems.\n\nThe implementation plan for integrating the bridging header is as follows:\n\n1. Configure the Xcode project to use the new ReplayWeb-Bridging-Header.h file:\n   - Open the project settings in Xcode\n   - Navigate to Build Settings > Swift Compiler - General\n   - Set the \"Objective-C Bridging Header\" path to point to ReplayWeb-Bridging-Header.h\n   - Ensure the path is relative to the project directory (e.g., \"$(SRCROOT)/ReplayWeb-Bridging-Header.h\")\n\n2. Update additional build settings to ensure proper recognition:\n   - Verify \"Install Objective-C Compatibility Header\" is set to \"Yes\"\n   - Check that \"Objective-C Generated Interface Header Name\" is properly configured\n   - Ensure \"SWIFT_OBJC_BRIDGING_HEADER\" is correctly set in the project's build settings\n\n3. Implement a thorough clean and rebuild process:\n   - Delete the derived data folder to eliminate any cached artifacts\n   - Run a full clean build (Product > Clean Build Folder)\n   - Rebuild the project and verify that UIKit import errors are resolved\n   - Check that AppDelegate.swift, FilePicker.swift, and MainViewController.swift compile without errors\n\n4. Test the offline functionality comprehensively:\n   - Verify the app can transition to offline mode smoothly\n   - Test data persistence while offline\n   - Confirm synchronization works when returning online\n   - Ensure all offline features function as expected\n\nThis bridging header approach addresses the root cause of our import issues by providing a centralized location for framework imports, which should resolve the persistent \"No such module 'UIKit'\" errors and allow us to complete the offline functionality implementation.\n</info added on 2025-05-19T20:20:49.299Z>\n<info added on 2025-05-19T23:43:43.112Z>\nAfter examining the build logs, I've identified that we're still encountering errors related to class references. The bridging header is working for resolving the UIKit import issues, but we now need to address circular dependencies between files that are causing class reference errors.\n\nThe solution will involve:\n\n1. Updating the ReplayWeb-Bridging-Header.h file to include forward declarations of our custom classes:\n   - Add @class declarations for MainViewController, WebServerManager, and other custom classes\n   - This will break circular dependencies by allowing files to reference classes without fully importing them\n   - Ensure the forward declarations match the exact class names used in the Swift files\n\n2. Ensuring proper class references in the AppDelegate.swift file:\n   - Review and fix any incorrect class references or type mismatches\n   - Implement proper initialization of referenced classes\n   - Ensure the class hierarchy is correctly structured\n   - Remove any redundant or conflicting imports\n\n3. Rebuilding the project to verify our fixes:\n   - Clean the build folder to remove any cached artifacts\n   - Rebuild the project with the updated bridging header and class references\n   - Verify that all class reference errors are resolved\n   - Confirm that the app builds successfully without UIKit import errors\n\nThis approach addresses both the UIKit import issues and the circular dependencies between files, which should allow us to complete the implementation of offline functionality as required by the parent task.\n</info added on 2025-05-19T23:43:43.112Z>\n<info added on 2025-05-19T23:49:09.889Z>\nWe've successfully fixed the UIKit import and dependency issues, and the app now builds successfully. The next step is to test the offline functionality to ensure it works as expected.\n\nI'll now guide the user through a comprehensive testing process for the offline functionality, including:\n1. Running the app on a simulator\n2. Testing network connectivity monitoring\n3. Verifying offline content access\n4. Testing app state transitions (background/foreground)\n5. Validating Service Worker registration and caching\n\nThe testing process will involve:\n\n1. Simulator Testing:\n   - Launch the app on iOS simulators with different iOS versions (iOS 14, 15, and 16)\n   - Verify the app launches without crashes or UI issues\n   - Check that all UI elements related to offline functionality are properly displayed\n\n2. Network Connectivity Monitoring:\n   - Test the app's ability to detect network state changes\n   - Use Network Link Conditioner to simulate poor connectivity and network loss\n   - Verify that appropriate notifications or UI indicators appear when connectivity changes\n   - Confirm that the app correctly identifies when it's offline vs. online\n\n3. Offline Content Access:\n   - Pre-load content while online\n   - Switch to airplane mode or disconnect network\n   - Verify that previously accessed content remains available\n   - Test navigation between cached pages while offline\n   - Confirm that appropriate error messages appear for uncached content\n   - Test the offline queue functionality for actions performed while offline\n\n4. App State Transitions:\n   - Test how the app handles background/foreground transitions while offline\n   - Verify that offline state is preserved when app is backgrounded\n   - Check that connectivity monitoring resumes properly when returning to foreground\n   - Test offline functionality after device sleep/wake cycles\n   - Verify data persistence across app restarts while offline\n\n5. Service Worker Validation:\n   - Confirm proper Service Worker registration in the app\n   - Verify caching strategies are working as expected\n   - Check that offline assets are properly stored in the cache\n   - Test cache invalidation when new content is available online\n   - Verify synchronization of offline actions when returning online\n\nThis comprehensive testing approach will ensure that the offline functionality works correctly after resolving the UIKit import and dependency issues, completing this subtask successfully.\n</info added on 2025-05-19T23:49:09.889Z>",
+          "status": "in-progress",
+          "dependencies": [],
+          "parentTaskId": 7
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Performance Optimization and Testing",
+      "description": "Optimize app performance, handle edge cases, and implement comprehensive testing for various scenarios.",
+      "details": "1. Implement memory management for large archives:\n```swift\n// Monitor memory warnings\nfunc applicationDidReceiveMemoryWarning(_ application: UIApplication) {\n  // Clear non-essential caches\n  URLCache.shared.removeAllCachedResponses()\n  \n  // Notify web app about memory pressure\n  webView.evaluateJavaScript(\"if (window.notifyLowMemory) window.notifyLowMemory();\")\n}\n```\n2. Optimize HTTP server for range requests with large files\n3. Add logging and analytics for performance monitoring\n4. Implement proper error handling and user feedback\n5. Add unit and UI tests for critical functionality\n6. Test with various archive sizes and types\n7. Optimize startup time and resource usage",
+      "testStrategy": "1. Perform load testing with large WACZ archives (>1GB)\n2. Test on various iOS devices (older and newer models)\n3. Monitor memory usage during extended usage sessions\n4. Verify performance with multiple archives loaded sequentially\n5. Test range request performance with large files\n6. Validate app behavior under memory pressure\n7. Run automated UI tests for critical user flows",
+      "priority": "medium",
+      "dependencies": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "status": "pending",
+      "subtasks": [
+        {
+          "id": 1,
+          "title": "Implement Advanced Memory Management for Large Archives",
+          "description": "Enhance memory management strategies to efficiently handle large archive files, including proactive cache clearing and memory warning handling.",
+          "dependencies": [],
+          "details": "Utilize tools like the Memory Graph Debugger and implement ARC best practices to prevent memory leaks and excessive usage. Integrate logic to clear non-essential caches and notify the web app during memory pressure events.",
+          "status": "pending",
+          "testStrategy": "Simulate memory-intensive scenarios with large archives and monitor memory usage using Xcode Instruments. Verify that memory warnings trigger appropriate cleanup and that the app remains stable."
+        },
+        {
+          "id": 2,
+          "title": "Optimize HTTP Server for Efficient Range Requests",
+          "description": "Improve the HTTP server's handling of range requests, especially for large files, to ensure smooth streaming and partial downloads.",
+          "dependencies": [
+            1
+          ],
+          "details": "Implement efficient file reading and buffering strategies to support range requests without loading entire files into memory. Profile and optimize server response times for large file access.",
+          "status": "pending",
+          "testStrategy": "Conduct tests with various file sizes and types, measuring response times and memory usage during range requests. Validate correct handling of partial content and edge cases."
+        },
+        {
+          "id": 3,
+          "title": "Integrate Logging and Analytics for Performance Monitoring",
+          "description": "Add comprehensive logging and analytics to monitor app performance, resource usage, and user interactions.",
+          "dependencies": [
+            2
+          ],
+          "details": "Instrument key code paths with logging for memory usage, server response times, and error events. Integrate analytics tools to track performance metrics and user behavior.",
+          "status": "pending",
+          "testStrategy": "Review logs and analytics dashboards during normal and edge-case operations to ensure accurate data collection and actionable insights."
+        },
+        {
+          "id": 4,
+          "title": "Implement Robust Error Handling and User Feedback",
+          "description": "Develop error handling mechanisms and user feedback systems to gracefully manage failures and inform users of issues.",
+          "dependencies": [
+            3
+          ],
+          "details": "Design user-friendly error messages and fallback behaviors for scenarios such as failed downloads, memory pressure, or server errors. Ensure all critical errors are logged and reported.",
+          "status": "pending",
+          "testStrategy": "Trigger various error conditions (e.g., network failures, memory warnings) and verify that the app provides clear feedback and recovers gracefully."
+        },
+        {
+          "id": 5,
+          "title": "Develop and Execute Comprehensive Unit and UI Tests",
+          "description": "Create and run unit and UI tests covering critical functionality, edge cases, and performance scenarios.",
+          "dependencies": [
+            4
+          ],
+          "details": "Write automated tests for memory management, HTTP server range requests, error handling, and startup performance. Include tests for different archive sizes and types.",
+          "status": "pending",
+          "testStrategy": "Run the full test suite on multiple devices and iOS versions, ensuring all tests pass and performance targets are met."
+        }
+      ]
+    }
+  ]
+}

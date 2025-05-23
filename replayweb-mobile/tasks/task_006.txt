@@ -1,0 +1,77 @@
+# Task ID: 6
+# Title: Implement Archive Management
+# Status: pending
+# Dependencies: 5
+# Priority: medium
+# Description: Create functionality to manage imported WACZ archives, including listing, deleting, and providing metadata.
+# Details:
+1. Create a model to represent archive metadata:
+```swift
+struct ArchiveInfo {
+  let filename: String
+  let path: URL
+  let size: Int64
+  let importDate: Date
+}
+```
+2. Implement functions to list available archives:
+```swift
+func listArchives() -> [ArchiveInfo] {
+  let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+  let warcsDir = documentsDir.appendingPathComponent("warc-data")
+  
+  guard let fileURLs = try? FileManager.default.contentsOfDirectory(at: warcsDir, includingPropertiesForKeys: [.fileSizeKey, .creationDateKey]) else {
+    return []
+  }
+  
+  return fileURLs.compactMap { url in
+    guard url.pathExtension == "wacz" else { return nil }
+    let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
+    let size = attributes?[.size] as? Int64 ?? 0
+    let date = attributes?[.creationDate] as? Date ?? Date()
+    return ArchiveInfo(filename: url.lastPathComponent, path: url, size: size, importDate: date)
+  }
+}
+```
+3. Add functionality to delete archives
+4. Create a simple UI to display available archives
+5. Implement JavaScript bridge to communicate archive list to web app
+
+# Test Strategy:
+1. Verify archives are correctly listed after import
+2. Test deletion functionality works correctly
+3. Check that archive metadata (size, date) is accurate
+4. Validate UI updates when archives are added or removed
+5. Test with multiple archives to ensure proper management
+
+# Subtasks:
+## 1. Implement Archive Deletion Functionality [pending]
+### Dependencies: None
+### Description: Create a function to safely delete WACZ archives from the file system
+### Details:
+Develop a deleteArchive(archiveInfo: ArchiveInfo) function that removes the specified archive file from the warc-data directory. Include error handling for file system operations and ensure proper cleanup of any related resources. Consider implementing a confirmation mechanism before deletion to prevent accidental data loss.
+
+## 2. Extract and Store Archive Metadata [pending]
+### Dependencies: None
+### Description: Enhance ArchiveInfo model to include additional WARC metadata from the archive
+### Details:
+Extend the ArchiveInfo struct to include additional metadata fields such as crawl date, number of records, domains covered, and total size of contained resources. Implement a function to extract this metadata from WACZ files following WARC implementation guidelines. Store this metadata efficiently to avoid repeated extraction.
+
+## 3. Create Archive List UI Component [pending]
+### Dependencies: 6.1, 6.2
+### Description: Develop a user interface to display and manage available archives
+### Details:
+Design and implement a SwiftUI view that displays the list of available archives with their metadata. Include sorting options (by date, size, name), search functionality, and action buttons for deletion. The UI should be responsive and provide visual feedback during operations.
+
+## 4. Implement JavaScript Bridge for Archive Communication [pending]
+### Dependencies: 6.2
+### Description: Create a bridge to expose archive information to the web application
+### Details:
+Develop a JavaScript bridge using Swift's interoperability features to expose archive metadata and management functions to the web application. Implement methods to retrieve the archive list, get detailed metadata, and trigger deletion. Ensure proper serialization of Swift types to JavaScript-compatible formats.
+
+## 5. Add Archive Import Validation and Error Handling [pending]
+### Dependencies: 6.2
+### Description: Implement validation checks for imported archives and robust error handling
+### Details:
+Create a validation system that checks imported WACZ files for integrity and compatibility. Implement comprehensive error handling for various failure scenarios during import, listing, and deletion operations. Develop a logging mechanism to track archive management operations for debugging purposes.
+

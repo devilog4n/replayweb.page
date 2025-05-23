@@ -1,0 +1,60 @@
+# Task ID: 1
+# Title: Project Setup and Configuration
+# Status: done
+# Dependencies: None
+# Priority: high
+# Description: Initialize iOS project with proper configuration for WKWebView and App-Bound Domains to support Service Workers.
+# Details:
+1. Create a new iOS project using Swift and UIKit
+2. Configure Info.plist with WKAppBoundDomains:
+```xml
+<key>WKAppBoundDomains</key>
+<array>
+  <string>localhost</string>
+</array>
+```
+3. Add necessary frameworks and dependencies:
+   - WebKit.framework
+   - GCDWebServer (via CocoaPods or Swift Package Manager)
+4. Create basic folder structure:
+   - www/ (for ReplayWeb.page assets)
+   - Documents/warc-data/ (for user archives)
+5. Setup basic UI with a WKWebView as the main view
+
+# Test Strategy:
+1. Verify project builds successfully
+2. Confirm Info.plist contains correct WKAppBoundDomains entry
+3. Validate that all dependencies are properly linked
+4. Check that folder structure is created correctly on app initialization
+
+# Subtasks:
+## 1. Create New iOS Project with Swift and UIKit [done]
+### Dependencies: None
+### Description: Initialize a new iOS project using Swift and UIKit as the base frameworks.
+### Details:
+Open Xcode, select 'Create a new Xcode project', choose the App template, and ensure Swift and UIKit are selected as the language and interface options.
+
+## 2. Configure Info.plist for WKAppBoundDomains [done]
+### Dependencies: 1.1
+### Description: Add the WKAppBoundDomains key to Info.plist to specify allowed domains for WKWebView and enable Service Worker support.
+### Details:
+Edit Info.plist to include the WKAppBoundDomains array with 'localhost' as a string entry, ensuring proper XML formatting.
+
+## 3. Add Required Frameworks and Dependencies [done]
+### Dependencies: 1.1
+### Description: Integrate WebKit.framework and GCDWebServer into the project using CocoaPods or Swift Package Manager.
+### Details:
+Add WebKit.framework to the project’s linked frameworks. Use CocoaPods or Swift Package Manager to add GCDWebServer, updating the Podfile or Package.swift as needed.
+
+## 4. Establish Project Folder Structure [done]
+### Dependencies: 1.1
+### Description: Create the necessary folders for web assets and user archives within the project directory.
+### Details:
+Add a 'www/' folder for ReplayWeb.page assets and a 'Documents/warc-data/' folder for user archives, ensuring they are included in the project navigator.
+
+## 5. Implement Basic UI with WKWebView [done]
+### Dependencies: 1.2, 1.3
+### Description: Set up the main user interface with a WKWebView as the primary view component.
+### Details:
+Add a WKWebView to the main view controller, configure it using WKWebViewConfiguration, and ensure it loads local or remote content as needed.
+

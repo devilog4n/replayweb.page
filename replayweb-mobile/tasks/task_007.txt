@@ -1,0 +1,322 @@
+# Task ID: 7
+# Title: Implement Offline Functionality
+# Status: in-progress
+# Dependencies: 4, 5
+# Priority: high
+# Description: Ensure the app works fully offline by properly caching assets and handling Service Worker lifecycle.
+# Details:
+1. Implement proper Service Worker lifecycle management:
+```swift
+// Check if Service Worker is registered
+let checkSWScript = """
+navigator.serviceWorker.getRegistrations().then(registrations => {
+  window.webkit.messageHandlers.swStatus.postMessage({
+    registered: registrations.length > 0,
+    registrations: registrations.map(r => r.scope)
+  });
+});
+"""
+
+// Add message handler
+config.userContentController.add(self, name: "swStatus")
+```
+2. Handle app state transitions to ensure Service Worker stays active:
+```swift
+func applicationDidEnterBackground(_ application: UIApplication) {
+  // Keep server running if possible
+  backgroundTask = UIApplication.shared.beginBackgroundTask()
+}
+
+func applicationWillEnterForeground(_ application: UIApplication) {
+  // Ensure server is still running
+  if !server.isRunning {
+    setupServer()
+  }
+  
+  // Reload webview if needed
+  webView.reload()
+}
+```
+3. Implement cache management for offline access
+4. Add network status monitoring to inform user about offline mode
+5. Ensure proper error handling for offline scenarios
+
+# Test Strategy:
+1. Test app in airplane mode after initial setup
+2. Verify content loads from Service Worker cache when offline
+3. Test app behavior when transitioning between online/offline states
+4. Check app behavior after background/foreground cycles
+5. Validate that large archives can be accessed offline without issues
+
+# Subtasks:
+## 1. Implement Service Worker Lifecycle Management [pending]
+### Dependencies: None
+### Description: Set up and manage the Service Worker registration, activation, and update processes to ensure reliable offline support.
+### Details:
+Write scripts to check Service Worker registration status, handle updates, and manage activation. Integrate message handlers to communicate Service Worker status to the app.
+
+## 2. Manage App State Transitions for Offline Support [pending]
+### Dependencies: 7.1
+### Description: Handle app backgrounding and foregrounding to maintain Service Worker activity and ensure seamless offline operation.
+### Details:
+Implement logic to keep background tasks running when the app enters the background and to restart necessary services and reload views when returning to the foreground.
+
+## 3. Implement Asset and Data Caching [pending]
+### Dependencies: 7.1
+### Description: Cache essential assets and data to enable full offline functionality and quick loading.
+### Details:
+Use Service Worker and local storage mechanisms to cache static assets, API responses, and user data. Ensure cache is updated appropriately when online.
+
+## 4. Monitor Network Status and Inform Users [pending]
+### Dependencies: 7.3
+### Description: Detect changes in network connectivity and provide clear offline/online indicators to users.
+### Details:
+Implement network status monitoring using system APIs. Display UI indicators or notifications to inform users when the app is offline or regains connectivity.
+
+## 5. Handle Errors and Edge Cases in Offline Scenarios [pending]
+### Dependencies: 7.3, 7.4
+### Description: Implement robust error handling for offline operations, including data conflicts, failed requests, and sync issues.
+### Details:
+Gracefully handle errors such as failed network requests, data sync conflicts, and cache misses. Provide user feedback and options for conflict resolution.
+
+## 6. Fix UIKit Import and Dependency Issues [in-progress]
+### Dependencies: None
+### Description: Resolve the 'No such module UIKit' errors and fix build issues in the iOS project to ensure offline functionality works correctly
+### Details:
+This subtask involves:
+1. Fixing import statements in AppDelegate.swift, FilePicker.swift, and MainViewController.swift
+2. Resolving build configuration issues that may be causing the UIKit module not to be found
+3. Ensuring proper project settings and framework linkage
+4. Testing the build process to verify the fixes work correctly
+5. Ensuring offline functionality works as expected after fixes
+<info added on 2025-05-19T20:12:56.124Z>
+This subtask involves:
+
+1. Fixing import statements in AppDelegate.swift, FilePicker.swift, and MainViewController.swift
+2. Resolving build configuration issues that may be causing the UIKit module not to be found
+3. Ensuring proper project settings and framework linkage
+4. Testing the build process to verify the fixes work correctly
+5. Ensuring offline functionality works as expected after fixes
+
+Based on analysis of the project structure, this is a Capacitor-based iOS project with specific requirements for module imports. The 'No such module UIKit' errors are likely due to project configuration issues rather than just import syntax. The implementation approach will include:
+
+1. Restoring the original import statements without conditional compilation in affected files
+2. Checking and updating the project's build settings, particularly framework search paths and linked libraries
+3. Ensuring proper CocoaPods integration by verifying Podfile configuration and running pod install
+4. Cleaning derived data and rebuilding the project to eliminate cached build artifacts
+5. Testing the offline functionality after fixes to ensure it works correctly within the Capacitor framework
+</info added on 2025-05-19T20:12:56.124Z>
+<info added on 2025-05-19T20:14:40.879Z>
+After running pod install and attempting to build the project, we're now encountering different errors. The UIKit import errors may be resolving, but we're now seeing errors related to missing classes like WebServerManager and MainViewController.
+
+Our next steps will be:
+1. Checking if these classes exist in the project
+2. Ensuring all necessary Swift files are included in the target
+3. Fixing any circular dependencies between files
+4. Implementing any missing classes that are required for the offline functionality
+
+This suggests we're making progress on the UIKit import issues but now need to focus on class implementation and project structure issues. We'll need to:
+
+1. Search the codebase for WebServerManager and MainViewController implementations
+2. Check the project's target membership settings to ensure all required Swift files are included
+3. Review import statements for circular dependencies that might be causing compilation failures
+4. Create stubs or implementations for any missing classes that are essential for offline functionality
+5. Consider whether these classes should be part of the main app or a separate module/framework
+6. Update the build process documentation to include these additional steps for future reference
+</info added on 2025-05-19T20:14:40.879Z>
+<info added on 2025-05-19T20:15:51.927Z>
+After examining the project structure, I've identified a potential cause of our import issues: there are multiple versions of @capacitor/ios in the project (v3.9.0 and v7.2.0), which could be causing conflicts with framework imports.
+
+The version conflict in Capacitor dependencies is likely the root cause of our UIKit import issues and subsequent class resolution problems. This explains why we're seeing inconsistent behavior with imports and missing classes.
+
+To resolve these issues, I'll take the following systematic approach:
+
+1. Audit all Capacitor dependencies in package.json and pod files to identify version conflicts
+2. Standardize on a single version of @capacitor/ios (preferably the latest stable v7.2.0)
+3. Clean the node_modules directory and reinstall dependencies with a consistent version
+4. Update the Podfile to ensure it references the correct Capacitor version
+5. Run pod deintegrate followed by pod install to ensure clean framework linking
+6. Check the Xcode project settings to verify proper framework search paths
+7. Update import statements in problematic files to match the Capacitor framework structure
+8. Rebuild the project with the corrected configuration
+9. Test offline functionality to ensure it works with the updated dependencies
+
+This approach addresses both the immediate UIKit import errors and the underlying dependency conflicts that are likely causing our build issues.
+</info added on 2025-05-19T20:15:51.927Z>
+<info added on 2025-05-19T20:17:04.820Z>
+We've made significant progress on resolving the dependency issues. After identifying the Capacitor version conflicts and examining the project structure, we've successfully run pod install with the correct UTF-8 encoding. This is a critical step in resolving the framework import issues that were causing the 'No such module UIKit' errors.
+
+Our implementation plan is now focused on completing the fix with these specific steps:
+
+1. Clean the build folder to remove any cached artifacts that might be causing persistent errors
+2. Review and update import statements in AppDelegate.swift, FilePicker.swift, and MainViewController.swift to ensure they're compatible with the current Capacitor version
+3. Build the project to verify our fixes have resolved the UIKit import errors
+4. Test the offline functionality comprehensively to ensure it works correctly after these changes
+
+This approach should complete the resolution of our dependency issues while ensuring the offline functionality (which is the parent task's goal) works as expected. We'll document any additional findings during testing to help prevent similar issues in the future.
+</info added on 2025-05-19T20:17:04.820Z>
+<info added on 2025-05-19T20:18:37.583Z>
+After further investigation, we've determined that the UIKit import issues are more complex than initially thought, requiring a more comprehensive approach. The errors persist even after addressing Capacitor version conflicts, and we're now seeing additional errors related to class references in AppDelegate.swift.
+
+Our updated implementation plan includes:
+
+1. Creating a module map file to properly expose UIKit to the project:
+   - Add a modulemap file in the project directory
+   - Configure the module map to explicitly include UIKit
+   - Update build settings to reference this module map
+
+2. Implementing a consistent approach for all import statements:
+   - Review all Swift files for import inconsistencies
+   - Standardize import statements across AppDelegate.swift, FilePicker.swift, and MainViewController.swift
+   - Remove any conditional compilation blocks that might be causing conflicts
+   - Ensure imports follow the same pattern throughout the codebase
+
+3. Fixing class references and improving file organization:
+   - Resolve reference issues in AppDelegate.swift
+   - Ensure proper class hierarchy and inheritance
+   - Verify that all required classes are properly defined and accessible
+   - Organize files logically to prevent circular dependencies
+
+4. Implementing a clean rebuild process:
+   - Clear derived data completely
+   - Run a full pod deintegrate and reinstall
+   - Rebuild the project with the new configuration
+   - Verify that all UIKit import errors are resolved
+
+5. Testing offline functionality thoroughly:
+   - Ensure the app can transition to offline mode
+   - Verify data persistence works correctly
+   - Test synchronization when returning online
+   - Confirm all offline features function as expected
+
+This comprehensive approach addresses the root causes of our import issues while ensuring the offline functionality (the parent task's goal) works correctly after implementation.
+</info added on 2025-05-19T20:18:37.583Z>
+<info added on 2025-05-19T20:19:46.950Z>
+After multiple attempts to fix the import issues through code changes, we've determined that we need to focus on the underlying Xcode project configuration. The persistent "No such module 'UIKit'" errors suggest a more fundamental issue with how the project is set up rather than just import syntax problems.
+
+Our solution will now address the root cause by focusing on the project configuration:
+
+1. Check and update the project's build settings:
+   - Verify and correct the framework search paths to ensure UIKit is properly located
+   - Check the "Header Search Paths" setting to ensure it includes all necessary directories
+   - Confirm that "Always Search User Paths" is set appropriately
+
+2. Verify target membership of all Swift files:
+   - Ensure all Swift files are correctly included in the appropriate target
+   - Check for files that might be included in multiple targets causing conflicts
+   - Verify that AppDelegate.swift, FilePicker.swift, and MainViewController.swift are properly assigned
+
+3. Ensure proper project configuration:
+   - Verify the deployment target is set correctly for the iOS version we're supporting
+   - Check that the SDK settings match our development requirements
+   - Confirm the project's architecture settings are appropriate
+
+4. Implement a clean rebuild process:
+   - Delete the derived data folder completely to eliminate cached build artifacts
+   - Run a full clean build to ensure all dependencies are properly rebuilt
+   - Verify the build succeeds without UIKit import errors
+
+This approach focuses on the project configuration rather than code changes, which should address the persistent import issues at their source and ensure the offline functionality works correctly after implementation.
+</info added on 2025-05-19T20:19:46.950Z>
+<info added on 2025-05-19T20:20:49.299Z>
+We've made a breakthrough in resolving the UIKit import issues by creating a bridging header file. This approach is particularly effective for mixed Objective-C/Swift codebases and when dealing with framework visibility problems.
+
+The implementation plan for integrating the bridging header is as follows:
+
+1. Configure the Xcode project to use the new ReplayWeb-Bridging-Header.h file:
+   - Open the project settings in Xcode
+   - Navigate to Build Settings > Swift Compiler - General
+   - Set the "Objective-C Bridging Header" path to point to ReplayWeb-Bridging-Header.h
+   - Ensure the path is relative to the project directory (e.g., "$(SRCROOT)/ReplayWeb-Bridging-Header.h")
+
+2. Update additional build settings to ensure proper recognition:
+   - Verify "Install Objective-C Compatibility Header" is set to "Yes"
+   - Check that "Objective-C Generated Interface Header Name" is properly configured
+   - Ensure "SWIFT_OBJC_BRIDGING_HEADER" is correctly set in the project's build settings
+
+3. Implement a thorough clean and rebuild process:
+   - Delete the derived data folder to eliminate any cached artifacts
+   - Run a full clean build (Product > Clean Build Folder)
+   - Rebuild the project and verify that UIKit import errors are resolved
+   - Check that AppDelegate.swift, FilePicker.swift, and MainViewController.swift compile without errors
+
+4. Test the offline functionality comprehensively:
+   - Verify the app can transition to offline mode smoothly
+   - Test data persistence while offline
+   - Confirm synchronization works when returning online
+   - Ensure all offline features function as expected
+
+This bridging header approach addresses the root cause of our import issues by providing a centralized location for framework imports, which should resolve the persistent "No such module 'UIKit'" errors and allow us to complete the offline functionality implementation.
+</info added on 2025-05-19T20:20:49.299Z>
+<info added on 2025-05-19T23:43:43.112Z>
+After examining the build logs, I've identified that we're still encountering errors related to class references. The bridging header is working for resolving the UIKit import issues, but we now need to address circular dependencies between files that are causing class reference errors.
+
+The solution will involve:
+
+1. Updating the ReplayWeb-Bridging-Header.h file to include forward declarations of our custom classes:
+   - Add @class declarations for MainViewController, WebServerManager, and other custom classes
+   - This will break circular dependencies by allowing files to reference classes without fully importing them
+   - Ensure the forward declarations match the exact class names used in the Swift files
+
+2. Ensuring proper class references in the AppDelegate.swift file:
+   - Review and fix any incorrect class references or type mismatches
+   - Implement proper initialization of referenced classes
+   - Ensure the class hierarchy is correctly structured
+   - Remove any redundant or conflicting imports
+
+3. Rebuilding the project to verify our fixes:
+   - Clean the build folder to remove any cached artifacts
+   - Rebuild the project with the updated bridging header and class references
+   - Verify that all class reference errors are resolved
+   - Confirm that the app builds successfully without UIKit import errors
+
+This approach addresses both the UIKit import issues and the circular dependencies between files, which should allow us to complete the implementation of offline functionality as required by the parent task.
+</info added on 2025-05-19T23:43:43.112Z>
+<info added on 2025-05-19T23:49:09.889Z>
+We've successfully fixed the UIKit import and dependency issues, and the app now builds successfully. The next step is to test the offline functionality to ensure it works as expected.
+
+I'll now guide the user through a comprehensive testing process for the offline functionality, including:
+1. Running the app on a simulator
+2. Testing network connectivity monitoring
+3. Verifying offline content access
+4. Testing app state transitions (background/foreground)
+5. Validating Service Worker registration and caching
+
+The testing process will involve:
+
+1. Simulator Testing:
+   - Launch the app on iOS simulators with different iOS versions (iOS 14, 15, and 16)
+   - Verify the app launches without crashes or UI issues
+   - Check that all UI elements related to offline functionality are properly displayed
+
+2. Network Connectivity Monitoring:
+   - Test the app's ability to detect network state changes
+   - Use Network Link Conditioner to simulate poor connectivity and network loss
+   - Verify that appropriate notifications or UI indicators appear when connectivity changes
+   - Confirm that the app correctly identifies when it's offline vs. online
+
+3. Offline Content Access:
+   - Pre-load content while online
+   - Switch to airplane mode or disconnect network
+   - Verify that previously accessed content remains available
+   - Test navigation between cached pages while offline
+   - Confirm that appropriate error messages appear for uncached content
+   - Test the offline queue functionality for actions performed while offline
+
+4. App State Transitions:
+   - Test how the app handles background/foreground transitions while offline
+   - Verify that offline state is preserved when app is backgrounded
+   - Check that connectivity monitoring resumes properly when returning to foreground
+   - Test offline functionality after device sleep/wake cycles
+   - Verify data persistence across app restarts while offline
+
+5. Service Worker Validation:
+   - Confirm proper Service Worker registration in the app
+   - Verify caching strategies are working as expected
+   - Check that offline assets are properly stored in the cache
+   - Test cache invalidation when new content is available online
+   - Verify synchronization of offline actions when returning online
+
+This comprehensive testing approach will ensure that the offline functionality works correctly after resolving the UIKit import and dependency issues, completing this subtask successfully.
+</info added on 2025-05-19T23:49:09.889Z>
+

@@ -1,0 +1,79 @@
+# Task ID: 2
+# Title: Implement Local HTTP Server
+# Status: done
+# Dependencies: 1
+# Priority: high
+# Description: Set up GCDWebServer to serve static assets and user-selected WACZ archives with support for range requests.
+# Details:
+1. Initialize GCDWebServer on app launch
+2. Configure server to serve content from www/ directory:
+```swift
+import GCDWebServer
+
+func setupServer() {
+  let server = GCDWebServer()
+  
+  // Serve static assets
+  server.addGETHandler(
+    forBasePath: "/",
+    directoryPath: wwwBundlePath,
+    indexFilename: "index.html",
+    cacheAge: 0,
+    allowRangeRequests: true
+  )
+  
+  // Serve user archives
+  server.addGETHandler(
+    forBasePath: "/archives",
+    directoryPath: documentsWarcsPath,
+    indexFilename: nil,
+    cacheAge: 0,
+    allowRangeRequests: true
+  )
+  
+  // Start server on localhost
+  server.start(withPort: 8080, bonjourName: nil)
+}
+```
+3. Ensure server is bound only to loopback interface for security
+4. Implement proper error handling and logging
+5. Create a singleton class to manage server lifecycle
+
+# Test Strategy:
+1. Verify server starts successfully on app launch
+2. Test that static files are served correctly from www/ directory
+3. Confirm range requests work by requesting partial content with Range header
+4. Check server is only accessible from localhost
+5. Validate server restarts properly after app background/foreground cycle
+
+# Subtasks:
+## 1. Create GCDWebServer Singleton Class [done]
+### Dependencies: None
+### Description: Implement a singleton class to manage the GCDWebServer lifecycle including initialization, configuration, and shutdown
+### Details:
+Create a WebServerManager class with static shared instance, server property, setup/start/stop methods, and proper memory management. Include status tracking to prevent multiple start attempts and handle app background/foreground transitions.
+
+## 2. Configure Static Asset Serving [done]
+### Dependencies: 2.1
+### Description: Set up the server to properly serve static assets from the www/ directory with appropriate caching and range request support
+### Details:
+Implement the handler for serving static content from www/ directory with index.html as default. Ensure proper MIME type detection, set cacheAge to 0 for development, and enable allowRangeRequests for media streaming support. Verify path resolution is secure and doesn't allow directory traversal.
+
+## 3. Implement WACZ Archive Serving [done]
+### Dependencies: 2.1
+### Description: Configure the server to serve user-selected WACZ archives from the documents directory with range request support
+### Details:
+Add handler for /archives path pointing to documentsWarcsPath. Implement proper file extension filtering to only serve .wacz files. Ensure correct Content-Type headers and enable range requests for efficient archive access. Add directory listing capability if needed.
+
+## 4. Implement Security Constraints [done]
+### Dependencies: 2.1
+### Description: Ensure the server is bound only to the loopback interface and implement proper security measures
+### Details:
+Configure server to only bind to 127.0.0.1 (localhost) using server.start(withPort: 8080, bonjourName: nil). Add options dictionary with GCDWebServerOption_BindToLocalhost set to true. Implement request validation to prevent unauthorized access and potential security vulnerabilities.
+
+## 5. Add Error Handling and Logging [done]
+### Dependencies: 2.1, 2.2, 2.3, 2.4
+### Description: Implement comprehensive error handling and logging for server operations
+### Details:
+Create a logging system that captures server events, errors, and access attempts. Implement error handling for server startup failures, file access issues, and unexpected shutdowns. Add recovery mechanisms to restart the server if it crashes. Include user-facing error messages for critical failures.
+

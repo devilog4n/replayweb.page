@@ -1,0 +1,64 @@
+# Task ID: 3
+# Title: Bundle ReplayWeb.page Assets
+# Status: done
+# Dependencies: 1
+# Priority: high
+# Description: Build and bundle the ReplayWeb.page PWA assets into the iOS app for offline use.
+# Details:
+1. Clone the ReplayWeb.page repository
+2. Build the web application:
+```bash
+cd replayweb.page
+npm install
+npm run build
+```
+3. Copy built assets to the iOS project:
+```bash
+cp -R dist/* ../MyApp/www/
+```
+4. Ensure Service Worker registration is included in index.html:
+```html
+<script>
+  navigator.serviceWorker.register('/sw.js').then(() => console.log('SW registered'));
+</script>
+```
+5. Create a build script to automate this process for future updates
+6. Add these files to the Xcode project to ensure they're bundled with the app
+
+# Test Strategy:
+1. Verify all necessary files are copied to www/ directory
+2. Check that index.html contains Service Worker registration code
+3. Validate that sw.js is present and contains the correct code
+4. Ensure all JavaScript, CSS, and other assets are properly included
+
+# Subtasks:
+## 1. Implement iOS-specific PWA caching strategy [done]
+### Dependencies: None
+### Description: Modify the service worker to implement an appropriate caching strategy that works reliably on iOS devices
+### Details:
+Research and implement a cache-first or cache-only strategy in the service worker that addresses iOS-specific caching issues. Ensure the service worker properly handles offline scenarios by precaching essential resources during installation and serving cached content when network is unavailable.
+
+## 2. Configure offline support settings for iOS [done]
+### Dependencies: 3.1
+### Description: Ensure PWA offline support is properly configured for iOS devices
+### Details:
+Review and modify the PWA manifest and configuration to ensure offline support is enabled specifically for iOS. Check that the service worker registration in index.html is compatible with iOS Safari and that cache storage permissions are properly handled.
+
+## 3. Optimize asset bundling for iOS performance [done]
+### Dependencies: 3.1, 3.2
+### Description: Optimize the bundled assets to ensure optimal performance on iOS devices
+### Details:
+Analyze and optimize the size of bundled assets, implement resource prioritization, and ensure critical assets are precached. Consider implementing resource hints like preload and prefetch for essential assets to improve initial load performance on iOS.
+
+## 4. Implement periodic cache updates [done]
+### Dependencies: 3.1, 3.2
+### Description: Create a mechanism to periodically update cached assets when online
+### Details:
+Implement a strategy to periodically check for and update cached assets when the device is online. This ensures that the PWA can serve reasonably fresh responses even when offline. Consider using the Periodic Background Sync API if supported.
+
+## 5. Create iOS-specific fallback mechanisms [done]
+### Dependencies: 3.1, 3.2, 3.3
+### Description: Implement fallback mechanisms for uncached resources on iOS
+### Details:
+Develop fallback strategies for handling requests to uncached resources when offline. Create custom offline pages or responses for different types of content. Ensure the iOS app gracefully handles scenarios where requested resources are not available in the cache.
+
