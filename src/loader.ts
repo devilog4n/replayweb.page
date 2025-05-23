@@ -46,111 +46,99 @@ class Loader extends LitElement {
   @property({ type: String }) extraMsg?: string;
   @property({ type: String }) swName?: string;
 
-  pingInterval: number | NodeJS.Timer = 0;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- requestPermission() type mismatch
-  fileHandle: any = null;
-  noWebWorker = false;
-  worker?: Worker | null;
+  /** browser timer ID (or null if no ping loop is active) */
+  private pingInterval: ReturnType<typeof window.setInterval> | null = null;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- for fileHandle
+  private fileHandle: any = null;
+  private noWebWorker = false;
+  private worker?: Worker | null;
 
   // Google Drive
-  _gdWait?: Promise<LoadInfo>;
-  _gdResolve!: (value: LoadInfo | PromiseLike<LoadInfo>) => void;
+  private _gdWait?: Promise<LoadInfo>;
+  private _gdResolve!: (value: LoadInfo | PromiseLike<LoadInfo>) => void;
 
   firstUpdated() {
     this.initMessages();
-    //this.doLoad();
   }
 
-  initMessages() {
-    this.noWebWorker = Boolean(this.loadInfo && this.loadInfo.noWebWorker);
+  private initMessages() {
+    this.noWebWorker = Boolean(this.loadInfo?.noWebWorker);
 
     if (!this.noWebWorker) {
       this.worker = new Worker(this.swName!);
     } else {
-      // TODO: Fix this the next time the file is edited.
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (!navigator.serviceWorker) {
         return;
       }
-
-      // TODO figure out if this is okay?
       this.worker = navigator.serviceWorker as unknown as Worker;
     }
 
-    this.worker.addEventListener(
-      "message",
-      (
-        event: MessageEvent<{
-          msg_type: string;
-          name: string;
-          percent: number;
-          error?: string;
-          fileHandle: FileSystemHandle | null;
-          currentSize?: number;
-          totalSize?: number;
-          extraMsg?: string;
-        }>,
-      ) => {
-        switch (event.data.msg_type) {
-          case "collProgress":
-            if (event.data.name === this.coll) {
-              this.percent = event.data.percent;
-              if (event.data.error) {
-                this.error = event.data.error;
-                this.state = "errored";
-                this.errorAllowRetry = true;
-                this.fileHandle = event.data.fileHandle;
-                if (this.error === "missing_local_file") {
-                  this.tryFileHandle = false;
-                } else if (
-                  this.error === "permission_needed" &&
-                  event.data.fileHandle
-                ) {
-                  this.state = "permission_needed";
-                  break;
-                }
-              }
-              if (event.data.currentSize && event.data.totalSize) {
-                this.currentSize = event.data.currentSize;
-                this.totalSize = event.data.totalSize;
-              }
-              this.extraMsg = event.data.extraMsg;
-            }
-            break;
+    this.worker.addEventListener("message", (event) => {
+      const data = event.data as {
+        msg_type: string;
+        name: string;
+        percent: number;
+        error?: string;
+        fileHandle: FileSystemHandle | null;
+        currentSize?: number;
+        totalSize?: number;
+        extraMsg?: string;
+      };
 
-          case "collAdded":
-            if (event.data.name === this.coll) {
-              if (!this.total) {
-                this.total = 100;
+      switch (data.msg_type) {
+        case "collProgress":
+          if (data.name === this.coll) {
+            this.percent = data.percent;
+            if (data.error) {
+              this.error = data.error;
+              this.state = "errored";
+              this.errorAllowRetry = true;
+              this.fileHandle = data.fileHandle;
+              if (data.error === "missing_local_file") {
+                this.tryFileHandle = false;
+              } else if (data.error === "permission_needed" && data.fileHandle) {
+                this.state = "permission_needed";
+                break;
               }
-              this.progress = this.total;
-              this.percent = 100;
-              this.dispatchEvent(
-                new CustomEvent("coll-loaded", { detail: event.data }),
-              );
-
-              if (!this.noWebWorker) {
-                this.worker?.terminate();
-              } else {
-                if (this.pingInterval) {
-                  clearInterval(this.pingInterval);
-                }
-              }
-              this.worker = null;
             }
-            break;
-        }
-      },
-    );
+            if (data.currentSize && data.totalSize) {
+              this.currentSize = data.currentSize;
+              this.totalSize = data.totalSize;
+            }
+            this.extraMsg = data.extraMsg;
+          }
+          break;
+
+        case "collAdded":
+          if (data.name === this.coll) {
+            if (!this.total) this.total = 100;
+            this.progress = this.total;
+            this.percent = 100;
+            this.dispatchEvent(
+              new CustomEvent("coll-loaded", { detail: data })
+            );
+
+            if (!this.noWebWorker) {
+              this.worker?.terminate();
+            } else {
+              if (this.pingInterval !== null) {
+                window.clearInterval(this.pingInterval);
+                this.pingInterval = null;
+              }
+            }
+            this.worker = null;
+          }
+          break;
+      }
+    });
   }
 
-  async doLoad() {
+  private async doLoad() {
     let sourceUrl = this.sourceUrl;
     let source: LoadInfo | null = null;
 
     this.percent = this.currentSize = this.totalSize = 0;
-
-    // const noSWError = getSWErrorMsg();
 
     if (this.loadInfo?.swError) {
       this.state = "errored";
@@ -159,15 +147,12 @@ class Loader extends LitElement {
       return;
     }
 
-    // custom protocol handlers here...
     try {
       const { scheme, host, path } = parseURLSchemeHostPath(sourceUrl!);
 
       switch (scheme) {
         case "googledrive":
           this.state = "googledrive";
-          // TODO: Fix this the next time the file is edited.
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
           source = (await this.googledriveInit()) ?? null;
           break;
 
@@ -182,13 +167,11 @@ class Loader extends LitElement {
         case "file":
           if (!this.loadInfo && !this.tryFileHandle) {
             this.state = "errored";
-            this.error = `\
-File URLs can not be entered directly or shared.
+            this.error = `File URLs can not be entered directly or shared.
 You can select a file to upload from the main page by clicking the 'Choose File...' button.`;
             this.errorAllowRetry = false;
             return;
           }
-
           source = this.loadInfo;
           break;
 
@@ -197,7 +180,7 @@ You can select a file to upload from the main page by clicking the 'Choose File.
           break;
       }
     } catch (e) {
-      console.log(e);
+      console.error(e);
     }
 
     if (!source) {
@@ -206,18 +189,14 @@ You can select a file to upload from the main page by clicking the 'Choose File.
 
     this.state = "started";
 
-    let type = undefined;
+    let type: string | undefined;
     let extraConfig: LoadInfo["extraConfig"] = undefined;
 
     if (this.loadInfo) {
       source.newFullImport = this.loadInfo.newFullImport;
       source.loadEager = this.loadInfo.loadEager;
       source.noCache = this.loadInfo.noCache;
-
-      if (this.loadInfo.extraConfig) {
-        extraConfig = this.loadInfo.extraConfig;
-      }
-      // todo: too special case?
+      extraConfig = this.loadInfo.extraConfig;
       if (sourceUrl!.startsWith("proxy:") && extraConfig?.recording) {
         type = "recordingproxy";
       }
@@ -238,78 +217,49 @@ You can select a file to upload from the main page by clicking the 'Choose File.
       if (!this.noWebWorker) {
         this.worker.postMessage(msg);
       } else {
-        // @ts-expect-error - TS2531 - Object is possibly 'null'.
-        navigator.serviceWorker.controller.postMessage(msg);
-
-        // ping service worker with messages to avoid shutdown while loading
-        // (mostly for Firefox)
-        this.pingInterval = setInterval(() => {
-          // @ts-expect-error - TS2531 - Object is possibly 'null'.
-          navigator.serviceWorker.controller.postMessage({ msg_type: "ping" });
-        }, 15000);
+        navigator.serviceWorker.controller!.postMessage(msg);
+        // keep SW alive in Firefox
+        this.pingInterval = window.setInterval(() => {
+          navigator.serviceWorker.controller!.postMessage({ msg_type: "ping" });
+        }, 15_000);
       }
     }
   }
 
-  // TODO: Fix this the next time the file is edited.
   // eslint-disable-next-line @typescript-eslint/promise-function-async
-  googledriveInit() {
+  private googledriveInit() {
     this._gdWait = new Promise((resolve) => (this._gdResolve = resolve));
     return this._gdWait;
   }
 
-  onLoadReady(event: CustomEvent) {
-    // TODO: Fix this the next time the file is edited.
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (this._gdResolve) {
-      //const digest = await digestMessage(url, 'SHA-256');
-      //this.coll = "id-" + digest.slice(0, 12);
-
-      // TODO: Fix this the next time the file is edited.
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      this._gdResolve(event.detail);
-    }
+  private onLoadReady(event: CustomEvent<LoadInfo>) {
+    this._gdResolve(event.detail);
   }
 
-  async onCancel() {
-    if (!this.worker) {
-      return;
-    }
-
+  private async onCancel() {
+    if (!this.worker) return;
     const msg = { msg_type: "cancelLoad", name: this.coll };
 
     if (!this.noWebWorker) {
       this.worker.postMessage(msg);
-
       await this.updateComplete;
-
       this.dispatchEvent(
-        new CustomEvent("coll-load-cancel", {
-          bubbles: true,
-          composed: true,
-        }),
+        new CustomEvent("coll-load-cancel", { bubbles: true, composed: true })
       );
-
-      return;
-    }
-
-    // TODO: Fix this the next time the file is edited.
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (navigator.serviceWorker?.controller) {
+    } else if (navigator.serviceWorker.controller) {
       navigator.serviceWorker.controller.postMessage(msg);
-      if (this.pingInterval) {
-        clearInterval(this.pingInterval);
+      if (this.pingInterval !== null) {
+        window.clearInterval(this.pingInterval);
+        this.pingInterval = null;
       }
     }
   }
 
-  updated(changedProperties: PropertyValues<this>) {
+  updated(changed: PropertyValues<this>) {
     if (
-      Boolean(this.sourceUrl && changedProperties.has("sourceUrl")) ||
-      changedProperties.has("tryFileHandle")
+      (this.sourceUrl && changed.has("sourceUrl")) ||
+      changed.has("tryFileHandle")
     ) {
-      // TODO: Fix this the next time the file is edited.
-      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       this.doLoad();
     }
   }
@@ -320,12 +270,10 @@ You can select a file to upload from the main page by clicking the 'Choose File.
         height: 100%;
         display: flex;
       }
-
       .progress-div {
         position: relative;
         width: 400px !important;
       }
-
       .progress-label {
         position: absolute;
         top: 0;
@@ -334,20 +282,16 @@ You can select a file to upload from the main page by clicking the 'Choose File.
         font-size: calc(1.5rem / 1.5);
         line-height: 1.5rem;
       }
-
       .loaded-prog {
         margin-bottom: 1em;
       }
-
       .error {
         white-space: pre-wrap;
         margin-bottom: 2em;
       }
-
       section.container {
         margin: auto;
       }
-
       .extra-msg {
         font-size: 0.8rem;
       }
@@ -369,9 +313,11 @@ You can select a file to upload from the main page by clicking the 'Choose File.
           ></fa-icon>
         </div>
         ${!this.embed
-          ? html` <div class="level">
-              <p class="level-item">Loading&nbsp;<b>${this.sourceUrl}</b>...</p>
-            </div>`
+          ? html`
+              <div class="level">
+                <p class="level-item">Loading <b>${this.sourceUrl}</b>…</p>
+              </div>
+            `
           : ""}
         <div class="level">
           <div class="level-item has-text-centered">
@@ -382,110 +328,104 @@ You can select a file to upload from the main page by clicking the 'Choose File.
     `;
   }
 
-  renderContent() {
+  private renderContent() {
     switch (this.state) {
       case "googledrive":
         return html`<wr-gdrive
           .sourceUrl=${this.sourceUrl!}
           @load-ready=${this.onLoadReady}
         ></wr-gdrive>`;
-
       case "started":
-        return html` <div class="progress-div">
-          ${!this.currentSize ? nothing : this.renderProgressBar()}
-          ${!this.embed
-            ? html` <button @click="${this.onCancel}" class="button is-danger">
-                Cancel
-              </button>`
-            : ""}
-        </div>`;
-
-      case "errored":
-        return html` <div class="has-text-left">
-          <div class="error has-text-danger">${this.error}</div>
-          <div>
-            ${this.errorAllowRetry
-              ? html` <a
-                  class="button is-warning"
-                  @click=${() => window.parent.location.reload()}
-                  >Try Again</a
-                >`
+        return html`
+          <div class="progress-div">
+            ${!this.currentSize ? nothing : this.renderProgressBar()}
+            ${!this.embed
+              ? html`
+                  <button @click=${this.onCancel} class="button is-danger">
+                    Cancel
+                  </button>
+                `
               : ""}
-            ${this.embed
-              ? html``
-              : html` <a href="/" class="button is-warning">Back</a>`}
           </div>
-        </div>`;
-
+        `;
+      case "errored":
+        return html`
+          <div class="has-text-left">
+            <div class="error has-text-danger">${this.error}</div>
+            <div>
+              ${this.errorAllowRetry
+                ? html`
+                    <a
+                      class="button is-warning"
+                      @click=${() => window.parent.location.reload()}
+                      >Try Again</a
+                    >
+                  `
+                : ""}
+              ${this.embed
+                ? nothing
+                : html`<a href="/" class="button is-warning">Back</a>`}
+            </div>
+          </div>
+        `;
       case "permission_needed":
-        return html` <div class="has-text-left">
-          <div class="">
-            Permission is needed to reload the archive file. (Click
-            <i>Cancel</i> to cancel loading this archive.)
+        return html`
+          <div class="has-text-left">
+            <div>
+              Permission is needed to reload the archive file. (Click
+              <i>Cancel</i> to cancel loading this archive.)
+            </div>
+            <button @click=${this.onAskPermission} class="button is-primary">
+              Show Permission
+            </button>
+            <a href="/" class="button is-danger">Cancel</a>
           </div>
-          <button @click="${this.onAskPermission}" class="button is-primary">
-            Show Permission
-          </button>
-          <a href="/" class="button is-danger">Cancel</a>
-        </div>`;
-
-      case "waiting":
+        `;
       default:
-        return html``;
+        return nothing;
     }
   }
 
   private renderProgressBar() {
-    // Calculate percentage based on currentSize and totalSize
-    // if data is available before actual percent
-    const percent =
+    const pct =
       this.currentSize && this.totalSize
         ? Math.max(this.percent, (this.currentSize / this.totalSize) * 100)
         : this.percent;
-    // Round up <1 percentages
-    const displayPercent = percent ? Math.max(percent, 1) : undefined;
+    const display = pct ? Math.max(pct, 1) : undefined;
 
     return html`
       <progress
         id="progress"
         class="progress is-primary is-large"
-        value=${ifDefined(displayPercent)}
+        value=${ifDefined(display)}
         max="100"
       ></progress>
-      ${displayPercent
-        ? html`
-            <label class="progress-label" for="progress"
-              >${displayPercent}%</label
-            >
-          `
+      ${display
+        ? html`<label class="progress-label" for="progress"
+            >${display}%</label
+          >`
         : nothing}
       ${this.currentSize && this.totalSize
-        ? html` <div class="loaded-prog">
-            Loaded
-            <b>${prettyBytes(this.currentSize)}</b>
-            of
-
-            <b>${prettyBytes(this.totalSize)}</b>
-
-            ${this.extraMsg &&
-            html` <p class="extra-msg">(${this.extraMsg})</p> `}
-          </div>`
-        : html``}
+        ? html`
+            <div class="loaded-prog">
+              Loaded <b>${prettyBytes(this.currentSize)}</b> of
+              <b>${prettyBytes(this.totalSize)}</b>
+              ${this.extraMsg
+                ? html`<p class="extra-msg">(${this.extraMsg})</p>`
+                : ""}
+            </div>
+          `
+        : nothing}
     `;
   }
 
-  async onAskPermission() {
-    const result = await this.fileHandle?.requestPermission({
-      mode: "read",
-    });
+  private async onAskPermission() {
+    const result = await this.fileHandle?.requestPermission({ mode: "read" });
     if (result === "granted") {
-      // TODO: Fix this the next time the file is edited.
-      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       this.doLoad();
     }
   }
 }
 
 customElements.define("wr-loader", Loader);
-
 export { Loader };
