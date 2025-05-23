@@ -46,10 +46,10 @@ class Loader extends LitElement {
   @property({ type: String }) extraMsg?: string;
   @property({ type: String }) swName?: string;
 
-  /** browser timer ID (or null if no ping loop is active) */
-  private pingInterval: ReturnType<typeof window.setInterval> | null = null;
+  /** DOM timer ID for our ping interval, or null if none */
+  private pingInterval: number | null = null;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- for fileHandle
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- requestPermission() type mismatch
   private fileHandle: any = null;
   private noWebWorker = false;
   private worker?: Worker | null;
@@ -97,7 +97,10 @@ class Loader extends LitElement {
               this.fileHandle = data.fileHandle;
               if (data.error === "missing_local_file") {
                 this.tryFileHandle = false;
-              } else if (data.error === "permission_needed" && data.fileHandle) {
+              } else if (
+                data.error === "permission_needed" &&
+                data.fileHandle
+              ) {
                 this.state = "permission_needed";
                 break;
               }
@@ -121,11 +124,9 @@ class Loader extends LitElement {
 
             if (!this.noWebWorker) {
               this.worker?.terminate();
-            } else {
-              if (this.pingInterval !== null) {
-                window.clearInterval(this.pingInterval);
-                this.pingInterval = null;
-              }
+            } else if (this.pingInterval !== null) {
+              window.clearInterval(this.pingInterval);
+              this.pingInterval = null;
             }
             this.worker = null;
           }
@@ -218,7 +219,6 @@ You can select a file to upload from the main page by clicking the 'Choose File.
         this.worker.postMessage(msg);
       } else {
         navigator.serviceWorker.controller!.postMessage(msg);
-        // keep SW alive in Firefox
         this.pingInterval = window.setInterval(() => {
           navigator.serviceWorker.controller!.postMessage({ msg_type: "ping" });
         }, 15_000);
