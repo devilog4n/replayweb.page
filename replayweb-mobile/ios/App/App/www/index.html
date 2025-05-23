@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ReplayWeb Mobile</title>
+    <link rel="stylesheet" href="main.css">
+</head>
+<body>
+    <div class="container">
+        <h1>ReplayWeb Mobile</h1>
+        <p>Welcome to ReplayWeb Mobile, an iOS app for viewing web archives offline.</p>
+        
+        <div class="status">
+            <p><strong>Server Status:</strong> Running</p>
+            <p><strong>Service Worker:</strong> <span id="sw-status">Checking...</span></p>
+        </div>
+        
+        <h2>Getting Started</h2>
+        <p>To view a web archive:</p>
+        <ol class="instructions">
+            <li>Tap the "Open Archive" button below</li>
+            <li>Select a .wacz file from your device</li>
+            <li>The archive will load in ReplayWeb.page</li>
+        </ol>
+        
+        <button id="open-archive-btn">Open Archive</button>
+        
+        <div id="replay-container"></div>
+    </div>
+
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js')
+                .then(registration => {
+                    console.log('Service Worker registered with scope:', registration.scope);
+                    document.getElementById('sw-status').textContent = 'Registered and active';
+                })
+                .catch(error => {
+                    console.error('Service Worker registration failed:', error);
+                    document.getElementById('sw-status').textContent = 'Registration failed: ' + error;
+                });
+        } else {
+            console.warn('Service Workers not supported');
+            document.getElementById('sw-status').textContent = 'Not supported by this browser';
+        }
+    </script>
+    
+    <!-- Main Application Script -->
+    <script src="main.js"></script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+{
+  "appId": "com.example.replayweb",
+  "appName": "replayweb-mobile",
+  "webDir": "www",
+  "server": { 
+    "url": "http://localhost:8080",
+    "cleartext": true,
+    "androidScheme": "http"
+  },
+  "loggingBehavior": "debug",
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": false
+    },
+    "Http": {
+      "enabled": true,
+      "enableInDev": true
+    },
+    "Toast": {
+      "enabled": true
+    },
+    "WebView": {
+      "allowNavigation": ["*"],
+      "allowGoBackWithBackButton": true
+    }
+  }
+}

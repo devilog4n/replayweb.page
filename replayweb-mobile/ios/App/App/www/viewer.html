@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ReplayWeb.page Archive Viewer</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        }
+        
+        .viewer-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        
+        .viewer-header {
+            background-color: #0066cc;
+            color: white;
+            padding: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+        }
+        
+        .viewer-title {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .viewer-controls {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .viewer-button {
+            background-color: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .viewer-button:hover {
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+        
+        .viewer-content {
+            flex: 1;
+            position: relative;
+        }
+        
+        .viewer-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        
+        .viewer-loading {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+        
+        .viewer-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(0, 102, 204, 0.2);
+            border-radius: 50%;
+            border-top-color: #0066cc;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .viewer-error {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #ffebee;
+            color: #f44336;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            max-width: 80%;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="viewer-container">
+        <div class="viewer-header">
+            <div class="viewer-title">Archive Viewer</div>
+            <div class="viewer-controls">
+                <button class="viewer-button" id="back-button">Back</button>
+                <button class="viewer-button" id="home-button">Home</button>
+            </div>
+        </div>
+        
+        <div class="viewer-content">
+            <iframe id="content-frame" class="viewer-iframe" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
+            
+            <div class="viewer-loading" id="loading-indicator">
+                <div class="viewer-spinner"></div>
+                <div>Loading archive content...</div>
+            </div>
+            
+            <div class="viewer-error" id="error-message" style="display: none;">
+                Error loading archive content
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Get DOM elements
+        const contentFrame = document.getElementById('content-frame');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const errorMessage = document.getElementById('error-message');
+        const backButton = document.getElementById('back-button');
+        const homeButton = document.getElementById('home-button');
+        const viewerTitle = document.querySelector('.viewer-title');
+        
+        // Get archive URL from query parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const archiveUrl = urlParams.get('source');
+        
+        // Initialize viewer
+        function initViewer() {
+            // Set up event listeners
+            backButton.addEventListener('click', goBack);
+            homeButton.addEventListener('click', goHome);
+            
+            // Handle iframe events
+            contentFrame.addEventListener('load', handleFrameLoad);
+            contentFrame.addEventListener('error', handleFrameError);
+            
+            // Load the archive
+            if (archiveUrl) {
+                loadArchive(archiveUrl);
+            } else {
+                showError('No archive URL specified');
+            }
+        }
+        
+        // Load the archive content
+        function loadArchive(url) {
+            showLoading(true);
+            showError(false);
+            
+            // Update title
+            const archiveName = getArchiveName(url);
+            viewerTitle.textContent = archiveName || 'Archive Viewer';
+            
+            // In a real implementation, this would use the ReplayWeb.page replay engine
+            // For our simplified version, we'll just load the archive URL directly
+            try {
+                contentFrame.src = url;
+            } catch (error) {
+                showError('Failed to load archive: ' + error.message);
+            }
+        }
+        
+        // Extract archive name from URL
+        function getArchiveName(url) {
+            try {
+                const path = new URL(url, window.location.origin).pathname;
+                const filename = path.split('/').pop();
+                return filename || 'Archive';
+            } catch (error) {
+                return 'Archive';
+            }
+        }
+        
+        // Handle iframe load event
+        function handleFrameLoad() {
+            showLoading(false);
+        }
+        
+        // Handle iframe error event
+        function handleFrameError() {
+            showLoading(false);
+            showError('Failed to load archive content');
+        }
+        
+        // Show/hide loading indicator
+        function showLoading(show) {
+            loadingIndicator.style.display = show ? 'flex' : 'none';
+        }
+        
+        // Show/hide error message
+        function showError(message) {
+            if (message) {
+                errorMessage.textContent = message;
+                errorMessage.style.display = 'block';
+            } else {
+                errorMessage.style.display = 'none';
+            }
+        }
+        
+        // Go back in history
+        function goBack() {
+            if (contentFrame.contentWindow && contentFrame.contentWindow.history.length > 1) {
+                contentFrame.contentWindow.history.back();
+            } else {
+                window.history.back();
+            }
+        }
+        
+        // Go to home page
+        function goHome() {
+            window.location.href = '/index.html';
+        }
+        
+        // Initialize when DOM is ready
+        document.addEventListener('DOMContentLoaded', initViewer);
+    </script>
+</body>
+</html>

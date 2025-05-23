@@ -1,0 +1,3 @@
+
+// Fix for "No such module 'UIKit'" errors
+SWIFT_INCLUDE_PATHS = $(SRCROOT)/App/Modules

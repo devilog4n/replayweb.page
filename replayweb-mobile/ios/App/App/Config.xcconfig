@@ -1,0 +1,19 @@
+// Add the Modules directory to the module search path
+SWIFT_INCLUDE_PATHS = $(SRCROOT)/App/Modules $(SDKROOT)/usr/include $(PLATFORM_DIR)/Developer/Library/Frameworks
+
+// Set module map file
+MODULEMAP_FILE = $(SRCROOT)/App/Modules/module.modulemap
+
+// Add comprehensive framework search paths
+FRAMEWORK_SEARCH_PATHS = $(inherited) $(SDKROOT)/System/Library/Frameworks $(PLATFORM_DIR)/Developer/Library/Frameworks $(DEVELOPER_FRAMEWORKS_DIR)
+
+// Import UIKit and other system frameworks explicitly
+OTHER_LDFLAGS = $(inherited) -framework UIKit -framework WebKit -framework Foundation
+
+// Enable module imports and essential compiler settings
+CLANG_ENABLE_MODULES = YES
+DEFINES_MODULE = YES
+SWIFT_INSTALL_OBJC_HEADER = YES
+CLANG_MODULES_AUTOLINK = YES
+SWIFT_VERSION = 5.0
+ALWAYS_SEARCH_USER_PATHS = NO

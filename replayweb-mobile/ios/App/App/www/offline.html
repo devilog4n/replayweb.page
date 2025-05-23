@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline - ReplayWeb.page Mobile</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+            background-color: #f5f5f7;
+            color: #333;
+        }
+        .offline-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        p {
+            font-size: 16px;
+            margin-bottom: 20px;
+            color: #666;
+            max-width: 400px;
+        }
+        .buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 100%;
+            max-width: 250px;
+        }
+        button {
+            background-color: #007aff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button.secondary {
+            background-color: #e0e0e0;
+            color: #333;
+        }
+        button:hover {
+            background-color: #0069d9;
+        }
+        button.secondary:hover {
+            background-color: #d0d0d0;
+        }
+        .cached-content {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #666;
+        }
+        .spinner {
+            border: 3px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top: 3px solid #007aff;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="offline-icon">📶</div>
+    <h1>You're Offline</h1>
+    <p>Unable to connect to the internet. You can try again or access your cached content.</p>
+    
+    <div class="buttons">
+        <button id="reload-btn" onclick="tryReload()">Try Again</button>
+        <button id="cached-btn" class="secondary" onclick="showCachedContent()">View Cached Content</button>
+        <div id="loading" class="hidden">
+            <div class="spinner"></div> Checking connection...
+        </div>
+    </div>
+    
+    <div id="cached-status" class="cached-content hidden"></div>
+    
+    <script>
+        // Check if we're still offline
+        window.addEventListener("online", function() {
+            document.getElementById('reload-btn').click();
+        });
+        
+        // Try to reload the page
+        function tryReload() {
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('reload-btn').disabled = true;
+            
+            // Try to fetch a small resource to check connectivity
+            fetch('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+P+/HgAFdwI2QOQjeQAAAABJRU5ErkJggg==', { 
+                mode: 'no-cors',
+                cache: 'no-store'
+            })
+            .then(() => {
+                // We're back online, reload the page
+                location.reload();
+            })
+            .catch(() => {
+                // Still offline
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('reload-btn').disabled = false;
+                
+                // Show error message
+                const cachedStatus = document.getElementById('cached-status');
+                cachedStatus.textContent = 'Still offline. Please check your connection.';
+                cachedStatus.classList.remove('hidden');
+                
+                // Hide message after 3 seconds
+                setTimeout(() => {
+                    cachedStatus.classList.add('hidden');
+                }, 3000);
+            });
+        }
+        
+        // Show cached content if available
+        function showCachedContent() {
+            const cachedStatus = document.getElementById('cached-status');
+            
+            // Check for cached content in localStorage
+            try {
+                // Try to get the last URL we were viewing
+                let lastURL = localStorage.getItem('lastViewedURL');
+                if (!lastURL) {
+                    // Default to index if no last URL
+                    lastURL = '/index.html';
+                }
+                
+                // Try to fetch from cache
+                caches.match(lastURL)
+                    .then(response => {
+                        if (response) {
+                            // We have cached content, redirect to it
+                            window.location.href = lastURL;
+                        } else {
+                            cachedStatus.textContent = 'No cached content available for ' + lastURL;
+                            cachedStatus.classList.remove('hidden');
+                        }
+                    })
+                    .catch(error => {
+                        cachedStatus.textContent = 'Error loading cached content.';
+                        cachedStatus.classList.remove('hidden');
+                        console.error('Error loading cached content:', error);
+                    });
+            } catch (e) {
+                cachedStatus.textContent = 'No cached content available.';
+                cachedStatus.classList.remove('hidden');
+                console.error('Error accessing cache:', e);
+            }
+        }
+        
+        // Store current URL before going offline
+        if (navigator.onLine) {
+            localStorage.setItem('lastViewedURL', window.location.href);
+        }
+    </script>
+</body>
+</html>

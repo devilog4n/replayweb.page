@@ -1,0 +1,29 @@
+framework module UIKit [system] {
+    umbrella header "UIKit.h"
+    export *
+    module * { export * }
+}
+
+framework module WebKit [system] {
+    umbrella header "WebKit.h"
+    export *
+    module * { export * }
+}
+
+framework module Foundation [system] {
+    umbrella header "Foundation.h"
+    export *
+    module * { export * }
+}
+
+module GCDWebServer {
+    umbrella header "GCDWebServer/GCDWebServer.h"
+    export *
+    module * { export * }
+}
+
+module Capacitor {
+    umbrella header "Capacitor/Capacitor.h"
+    export *
+    module * { export * }
+}

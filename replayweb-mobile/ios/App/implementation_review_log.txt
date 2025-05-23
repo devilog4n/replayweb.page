@@ -1,0 +1,252 @@
+# ReplayWeb iOS Implementation Review Log
+Date: 2025-05-19
+
+## Analysis Structure
+This log systematically analyzes the current implementation against PRD requirements,
+identifying conflicts and required fixes.
+
+## 1. Core PRD Requirements
+- Fully offline iOS application mirroring ReplayWeb.page PWA
+- WACZ archive selection via Files app
+- Service Worker support via embedded HTTP server
+- Secure origin simulation for proper SW functionality
+- Range request support for large archives
+
+## 2. Implementation Review by Component
+
+### 2.1 Info.plist Configuration
+- ✅ `WKAppBoundDomains` correctly includes `localhost` as required by PRD section 2.1
+- ✅ `NSAppTransportSecurity` allows local connections as required by PRD section 2.2
+- ✅ UTI declarations for `.wacz` files properly configured with UTType `org.webrecorder.wacz`
+- ✅ Proper CFBundleDocumentTypes implementation for handling WACZ archives
+
+### 2.2 WebServerManager Implementation
+- ✅ Using GCDWebServer as specified in PRD section 2.2
+- ✅ Fixed port 8080 aligns with PRD example code
+- ✅ Server correctly binds to localhost only (security requirement in PRD section 3.1)
+- ✅ Proper GET handler for `/` path serving www directory with index.html
+- ✅ Proper GET handler for `/archives` path serving user-selected WACZ files
+- ✅ Range requests enabled for both handlers (critical for WACZ streaming per PRD section 2.2)
+- ✅ Proper lifecycle management with app background/foreground transitions
+- ✅ Server automatically stops in background and restarts in foreground to conserve resources
+- ✅ Security option `GCDWebServerOption_BindToLocalhost: true` ensures server is not accessible from outside the device
+- ✅ Implements proper error handling for server initialization and operation
+- ✅ Uses `allowRangeRequests: true` for both static files and archives as required by PRD section 2.2
+- ✅ Smart detection of www directory location in both production and development environments
+- ✅ Creates required directories if they don't exist
+- ❓ Directory paths validation has been improved but could benefit from more comprehensive validation
+
+### 2.3 FilePicker Implementation
+- ✅ Uses UIDocumentPickerViewController as specified in PRD section 3.3
+- ✅ Properly filters for WACZ files using UTType `org.webrecorder.wacz`
+- ✅ Has appropriate fallbacks for earlier iOS versions using legacy document types
+- ✅ Forwards selected files to ArchiveManager for processing with proper error handling
+- ✅ Integrates with ArchiveManager which copies files to `Documents/warc-data/`
+- ✅ Implements proper security-scoped resource access with startAccessingSecurityScopedResource() and stopAccessingSecurityScopedResource()
+- ✅ Provides user feedback during import with loading indicators
+- ✅ Includes timeout handling for large archive imports
+- ✅ Performs validation of file extension before attempting import
+- ✅ Shows appropriate error messages based on specific failure reasons
+- ✅ Handles cancellation gracefully
+- ✅ Checks file size and provides warnings for very large archives
+- ✅ Automatically sets imported archive as active and restarts server when needed
+- ✅ Provides clear success and error messages with informative alerts
+
+### 2.4 ArchiveManager Implementation
+- ✅ Properly manages WACZ archives in `Documents/warc-data/` as specified in PRD section 3.3
+- ✅ Handles import of WACZ files with unique naming (UUID-based) to avoid conflicts
+- ✅ Provides methods to list, access, and delete archives
+- ✅ Tracks active archive for current session through the `activeArchivePath` property
+- ✅ Creates required directories if needed with proper error handling
+- ✅ Has comprehensive error handling for file operations (import, delete, validate)
+- ✅ Implements basic WACZ validation including file extension and size checks
+- ✅ Uses a singleton pattern for global access as appropriate for this type of service
+- ✅ Properly handles archive deletion with active archive tracking updates
+- ✅ Provides clear public API with well-defined error types
+- ✅ Uses clear logging for debugging purposes
+- ❓ Could benefit from more advanced WACZ validation such as checking ZIP structure and required internal files
+
+### 2.5 WKWebView Configuration in MainViewController
+- ✅ Sets `limitsNavigationsToAppBoundDomains = true` as required by PRD section 3.4
+- ✅ Uses `WKWebsiteDataStore.default()` as specified in PRD for persistence
+- ✅ Correctly configures content controller and preferences
+- ✅ Properly loads content from local HTTP server with correct URL structure
+- ✅ Implements cache clearing that preserves Service Worker registrations
+- ❌ Inconsistency: Sets `limitsNavigationsToAppBoundDomains` twice (lines 262 and 269)
+
+### 2.6 Service Worker Testing & Integration
+- ✅ Implements Service Worker registration verification through JavaScript
+- ✅ Provides visual feedback about SW registration status
+- ✅ Allows testing WACZ file imports with proper URL format
+- ✅ Contains code to test offline mode functionality
+- ✅ Uses the correct URL format to load archives: `http://localhost:8080/index.html?archive=/archives/archive.wacz`
+- ❓ The current test methods are diagnostic-focused rather than integrated into normal user flow
+
+### 2.7 capacitor.config.json Setup
+- ✅ Updated to use `http://localhost:8080` instead of `capacitor://localhost` to align with PRD requirements
+- ✅ Has proper configurations for server settings and plugins
+- ❓ May need further verification that the updated config is being properly used by the Capacitor framework
+
+### 2.8 Web Content Analysis
+
+#### 2.8.1 index.html
+- ✅ Properly registers Service Worker as specified in PRD section 3.2
+- ✅ Contains the exact code mentioned in the PRD: `navigator.serviceWorker.register('/sw.js')`
+- ✅ Shows Service Worker status to users via UI element (`#sw-status` span)
+- ✅ Properly loads main.js for archive handling
+- ✅ Has responsive design for mobile devices (uses proper viewport meta tag)
+- ✅ Includes clear UI elements for providing feedback about Service Worker status
+- ✅ Simple and clean interface with clear instructions for users
+- ✅ Consistent with the offline-first approach described in the PRD
+- ✅ Properly initializes the UI with a container for the ReplayWeb player
+- ✅ Includes a button to trigger file imports through the native app
+
+#### 2.8.2 sw.js (Service Worker)
+- ✅ Implements proper caching strategies for offline functionality using the Cache API
+- ✅ Specifically handles range requests for WACZ files as required by PRD section 2.2
+- ✅ Provides offline fallback page when network requests fail
+- ✅ Implements proper lifecycle events (install, activate, fetch) for complete SW implementation
+- ✅ Has separate handling for range requests and normal requests with appropriate conditional logic
+- ✅ Uses `skipWaiting()` for immediate activation to ensure the latest SW version is used
+- ✅ Implements cache versioning through `CACHE_NAME` for proper cache management
+- ✅ Includes cleanup of old caches on activation to prevent storage bloat
+- ✅ Pre-caches critical assets like index.html, main.js, and offline.html
+- ✅ Uses special handling for WACZ files identified by pathname pattern (`/archives/` or `.wacz`)
+- ✅ Provides fallback content when offline that is user-friendly
+- ✅ Uses event cloning for proper handling of request/response objects
+- ❓ Could benefit from more advanced caching strategies for larger archives (e.g., streaming partial content, indexing)
+- ❓ Error handling could be more robust with better logging and recovery mechanisms
+
+#### 2.8.3 main.js
+- ✅ Provides client-side logic for handling archive loading
+- ✅ Correctly processes URL parameters to load archives
+- ✅ Creates proper viewer URL with archive parameter
+- ✅ Has native app integration through window.webkit.messageHandlers
+- ✅ Implemented `window.setArchiveURL()` method as specified in PRD section 3.3
+- ✅ Returns a boolean response from `setArchiveURL()` to confirm successful handling
+- ✅ Properly encodes archive URLs to avoid injection issues
+- ✅ Implements multiple loading methods (URL parameters, API calls)
+- ✅ Provides visual feedback through loading indicators
+- ✅ Includes proper error handling for invalid archive URLs
+- ✅ Uses iframe sandboxing for security with appropriate permissions
+- ✅ Handles communication with the native app through message handlers
+- ✅ Implements proper event listeners for DOM content loaded
+- ✅ Uses self-executing function wrapper to avoid global namespace pollution
+
+## 3. Implementation Issues & Fixes
+
+### 3.1 Critical Issues
+
+#### 3.1.0 Improper JavaScript Integration
+- ❌ MainViewController was using direct URL navigation instead of JavaScript `setArchiveURL` method
+- **Fix Applied**: Updated `loadArchive` method in MainViewController.swift to:
+  - Use JavaScript `window.setArchiveURL()` method as specified in PRD section 3.3
+  - Implement proper error handling with fallback to direct navigation
+  - Provide detailed logging for both successful and failed attempts
+  - Add support for both initial loading and subsequent archive changes
+
+#### 3.1.1 Module Import Errors
+- ❌ Multiple "No such module 'UIKit'" errors across source files
+- **Fix Applied**: Created and executed `fix_module_errors_v2.sh` script which:
+  - Creates a custom module map file for UIKit, WebKit, and Foundation
+  - Updates the CocoaPods xcconfig files with proper module search paths
+  - Adds a UIKitBridge.swift file that exports the frameworks globally
+  - Updates the bridging header
+  - Clears Xcode caches
+- **Required Steps**:
+  1. Close Xcode completely
+  2. Reopen the App.xcworkspace (not xcodeproj)
+  3. Clean the build folder (Cmd+Shift+K)
+  4. Build the project (Cmd+B)
+
+#### 3.1.2 URL Scheme Mismatch
+- ❌ capacitor.config.json was using `capacitor://localhost` instead of required `http://localhost:8080`
+- **Fix Applied**: Updated capacitor.config.json to use correct scheme
+
+#### 3.1.3 Code Redundancy in WKWebView Configuration
+- ✅ No redundancy found in current implementation with `limitsNavigationsToAppBoundDomains` setting
+- **Fix Status**: Upon detailed review of MainViewController.swift, only one instance of `limitsNavigationsToAppBoundDomains` setting was found (line 403)
+- The previous log mentioned redundancy at lines 262 and 269, but these line numbers seem to be outdated or the issue has been resolved in a previous update
+- Current code properly sets this critical property once within the iOS 14+ availability check
+
+### 3.2 Improvement Opportunities
+
+#### 3.2.1 WACZ Validation
+- ✅ **Improvement Applied**: Enhanced WACZ validation with structure verification
+- The ArchiveManager now uses `unzip -l` to inspect WACZ file contents
+- Verifies the presence of required files:
+  - `archive.cdx` (CDX index)
+  - `datapackage.json` (Metadata)
+  - `pages/pages.jsonl` (Pages index)
+  - Checks for the presence of a warc files directory
+- Implements a graceful fallback if `unzip` command is unavailable
+- Requires at least 2 of the 3 key files to be present for validation to pass
+- Provides detailed logging of missing components
+
+#### 3.2.2 Service Worker Caching Strategies
+- ✅ **Improvement Applied**: Enhanced Service Worker with advanced caching strategies
+- Implemented specialized caching for different content types:
+  - Cache-first strategy for static assets
+  - Network-first strategy for HTML navigation
+  - Specialized handling for WACZ/WARC files
+  - Optimized range request handling for archive files
+- Added intelligent cache management:
+  - Time-based expiration (7 days for static content, 30 days for WACZ content)
+  - Maximum entry limits for each cache type
+  - Storage quota monitoring and adaptive caching based on available space
+  - Cache cleanup during activation to prevent stale content
+- Implemented more robust error handling with graceful fallbacks
+- Added detailed logging for debugging cache operations
+- Optimized streaming performance for large archive files
+- Added timestamp tracking for all cached entries
+
+#### 3.2.3 Directory Path Validation
+- ✅ **Improvement Applied**: Added comprehensive directory validation
+- WebServerManager now performs thorough validation of directory paths:
+  - Validates that the `www` directory contains required files (index.html, sw.js)
+  - Checks that `index.html` contains Service Worker registration code
+  - Verifies that directories are writable using test file creation/deletion
+  - Checks available disk space and warns if low (<100 MB)
+  - Validates both bundle paths and project paths
+  - Provides clear error messages for specific validation failures
+  - Implements graceful fallbacks for non-critical issues
+
+#### 3.2.4 Module Import Issues
+- ✅ **Implemented**: Comprehensive fix for "No such module 'UIKit'" errors
+- Resolved CocoaPods integration issues:
+  - Fixed UTF-8 encoding requirements by setting LANG=en_US.UTF-8
+  - Successfully reinstalled all pod dependencies with updated configuration
+  - Verified correct import statements in Swift files
+- Implemented strategic fixes to resolve framework import issues:
+  - Updated module search paths in project build settings to include SDK frameworks
+  - Created a dedicated UIKit.modulemap file to explicitly map UIKit framework
+  - Added ModuleImporter.swift to provide @_exported imports of system frameworks
+  - Simplified bridging header to eliminate path resolution conflicts
+  - Updated Podfile post-install hook with critical framework linking settings
+  - Added specific SDK search paths (including iPhoneSimulator18.2.sdk)
+  - Cleaned derived data and rebuild project with corrected settings
+  - Added proper module declarations and framework references
+- Ensured UIKit and other system frameworks are properly linked:
+  - Added explicit linker flags for UIKit, Foundation, and WebKit
+  - Fixed framework search paths in multiple build configurations
+  - Resolved Xcode module caching issues through complete rebuild
+
+#### 3.1.4 Missing Offline Page Implementation
+- ❌ Several calls to `showOfflinePage()` method, but the method itself was not implemented
+- **Fix Applied**: Implemented `showOfflinePage()` and `loadGenericOfflinePage()` methods in MainViewController.swift to:
+  - Try to use Service Worker for offline navigation if registered
+  - Attempt to load page from fallback cache if Service Worker unavailable
+  - Display a user-friendly offline page with retry button if both mechanisms fail
+  - Show information about the active archive even when offline
+  - Provide clear instructions to users about connectivity status
+
+## 4. Verification Checklist
+
+After implementing the fixes, verify:
+
+1. **Module Import Resolution**: No more "No such module 'UIKit'" errors when building
+2. **Service Worker Registration**: Service Worker registers successfully (use diagnostic tools)
+3. **WACZ File Import**: Importing and viewing WACZ archives works correctly
+4. **Offline Functionality**: App works correctly without network access after initial content loading
+5. **Range Requests**: Large WACZ files stream properly without memory issues
+6. **Offline Page Behavior**: Verify the offline page appears when network is lost and shows proper archive information
