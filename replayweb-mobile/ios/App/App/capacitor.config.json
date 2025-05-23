@@ -1,0 +1,36 @@
+{
+	"appId": "com.example.replayweb",
+	"appName": "replayweb-mobile",
+	"webDir": "www",
+	"server": {
+		"url": "capacitor://localhost",
+		"cleartext": true,
+		"androidScheme": "http"
+	},
+	"loggingBehavior": "debug",
+	"plugins": {
+		"SplashScreen": {
+			"launchAutoHide": false
+		},
+		"Http": {
+			"enabled": true,
+			"enableInDev": true
+		},
+		"Toast": {
+			"enabled": true
+		},
+		"WebView": {
+			"allowNavigation": [
+				"*"
+			],
+			"allowGoBackWithBackButton": true
+		}
+	},
+	"packageClassList": [
+		"HttpPlugin",
+		"CAPCameraPlugin",
+		"FilesystemPlugin",
+		"SplashScreenPlugin",
+		"ToastPlugin"
+	]
+}
