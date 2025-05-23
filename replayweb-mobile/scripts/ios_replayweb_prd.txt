@@ -1,0 +1,117 @@
+# iOS ReplayWeb App PRD
+
+## 1. Overview  
+Build a fully offline iOS application that mirrors ReplayWeb.page’s web-based PWA, enabling users to select `.wacz` archives via the Files app and replay them offline with full Service Worker support. This app uses an embedded HTTP server and WKWebView to simulate a secure origin, ensuring caching strategies, fetch interception, and range requests work exactly as in a browser.
+
+---
+
+## 2. Feasibility & Strategy
+
+### 2.1 Service Worker Limitations in WKWebView  
+- **Out-of-the-box WKWebView** does **not expose `navigator.serviceWorker`**, so direct SW registration fails.  
+- **App‑Bound Domains** (iOS 14+): Whitelist `localhost` under `WKAppBoundDomains` in Info.plist and set `limitsNavigationsToAppBoundDomains = YES` to enable SW on up to 10 domains.  
+- **Default‑Browser Entitlement**: Not viable for standard App Store apps.  
+- **Conclusion**: Use **HTTP(s) context** via a **local HTTP server** to host content under `http://localhost:PORT`, satisfying the secure origin requirement for real SW registration.
+
+### 2.2 Serving via Embedded HTTP Server  
+- **Use GCDWebServer** or similar to serve `www/` directory and user archives.  
+- **HTTP Range Requests**: Must support byte-range headers so the Service Worker can stream from large `.wacz` files.  
+- **Port**: Fixed (e.g. 8080) or dynamically allocated; ensure WKWebView always points to the correct URL.  
+- **ATS**: Confirm App Transport Security allows `http://localhost` (default permits localhost, but verify).
+
+---
+
+## 3. Core Features
+
+### 3.1 Local HTTP Server  
+- **Initialize** on app launch, serving:  
+  - `/index.html` + ReplayWeb static assets  
+  - `/sw.js` (Service Worker)  
+  - `/archives/*.wacz` for user‑selected files  
+- **Security**: Bind only to loopback interface; optional internal HTTPS not required.
+
+### 3.2 Service Worker Integration  
+- **Bundle**: Copy `sw.js` and related scripts from ReplayWeb.page into `www/`.  
+- **Register**: In `index.html`, include:  
+  ```html
+  <script>
+    navigator.serviceWorker.register('/sw.js').then(() => console.log('SW registered'));
+  </script>
+  ```  
+- **Scope**: `/`, so all requests (UI assets and archived content) are intercepted.
+
+### 3.3 Archive File Picker  
+- **UIDocumentPickerViewController**: Filter for UTI `"public.wacz"`.  
+- **Copy**: Move or link selected file to `Documents/warc-data/` (e.g. `archive.wacz`).  
+- **Serve**: Local server maps `GET /archives/archive.wacz` to that file.  
+- **Notify Frontend**: After import, inject via JS:  
+  ```js
+  window.location.href = `http://localhost:8080/index.html?archive=/archives/archive.wacz`;
+  ```
+
+### 3.4 WKWebView Configuration  
+- **Configuration**:
+  ```swift
+  let config = WKWebViewConfiguration()
+  config.limitsNavigationsToAppBoundDomains = true
+  config.websiteDataStore = .default()
+  ```
+- **Load**: `webView.load(URLRequest(url: URL(string: "http://localhost:8080/index.html")!))`
+
+---
+
+## 4. Implementation Steps
+
+1. **Build & Bundle ReplayWeb.page Assets**  
+   ```bash
+   cd replayweb.page
+   npm install && npm run build
+   cp -R dist/* ../MyApp/www/
+   ```
+2. **Start Local HTTP Server**  
+   ```swift
+   import GCDWebServer
+   let server = GCDWebServer()
+   server.addGETHandler(forBasePath: "/", directoryPath: wwwBundlePath, indexFilename: "index.html", cacheAge: 0, allowRangeRequests: true)
+   server.addGETHandler(forBasePath: "/archives", directoryPath: documentsWarcsPath, indexFilename: nil, cacheAge: 0, allowRangeRequests: true)
+   server.start(withPort: 8080, bonjourName: nil)
+   ```
+3. **Enable Service Workers**  
+   - Info.plist:
+     ```xml
+     <key>WKAppBoundDomains</key>
+     <array><string>localhost</string></array>
+     ```
+   - `limitsNavigationsToAppBoundDomains = true`
+4. **Implement `.wacz` File Picker**  
+   ```swift
+   let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.init("public.wacz")])
+   // copy to Documents/warc-data/archive.wacz
+   ```
+5. **Inject Archive URL**  
+   ```swift
+   webView.evaluateJavaScript("window.setArchiveURL('/archives/archive.wacz')")
+   ```
+6. **Test Offline Replay**  
+   - Use Safari Web Inspector: confirm SW registered under `localhost`.  
+   - Import `.wacz`, navigate pages, disable network, verify all content served from local cache/archive.
+
+---
+
+## 5. Alternative & Fallback Approaches
+
+- **WKURLSchemeHandler**: Custom scheme (`offline://`), intercept requests in Swift—no SW support, requires native cache logic.  
+- **Capacitor/Cordova**: Use built‑in local server (`capacitor://localhost`), still requires `WKAppBoundDomains`.  
+- **Web Worker Mode**: Use `wabac.js` as Web Worker and override `fetch` in page—complex and duplicates SW functionality.
+
+---
+
+## 6. Risks & Mitigations
+
+- **SW Availability**: Only iOS 14+; enforce minimum OS.  
+- **Large Archives**: Range requests should prevent high memory use.  
+- **Storage Eviction**: iOS may purge Cache Storage; rely on direct file streaming from `.wacz`.
+
+---
+
+*End of PRD*
