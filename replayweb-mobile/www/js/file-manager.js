@@ -142,7 +142,7 @@ async function refreshArchiveList() {
           size: stat.size,
           mtime: stat.mtime,
           type: getArchiveType(archive.name),
-          url: `http://localhost:3333/${archive.name}`
+          url: `http://localhost:8090/${archive.name}`
         });
       } catch (error) {
         // If stat fails, still include the file with basic info
@@ -151,7 +151,7 @@ async function refreshArchiveList() {
           size: 0,
           mtime: new Date().toISOString(),
           type: getArchiveType(archive.name),
-          url: `http://localhost:3333/${archive.name}`
+          url: `http://localhost:8090/${archive.name}`
         });
       }
     }

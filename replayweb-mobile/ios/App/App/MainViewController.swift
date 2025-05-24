@@ -149,10 +149,25 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
     
     // Fallback method using direct navigation if JavaScript method fails
     private func loadViaDirectNavigation(serverURL: URL, relativePath: String, archiveURL: URL) {
-        // Format the URL directly as specified in the PRD
-        let archiveIndexURL = "\(serverURL.absoluteString)index.html?archive=\(relativePath)"
+        // Construct the full URL to the WACZ file.
+        // serverURL.absoluteString is like "http://localhost:8090/"
+        // relativePath is like "/archives/FILENAME.wacz"
+        // We want waczFileSourceURLString to be "http://localhost:8090/archives/FILENAME.wacz"
+
+        // Ensure relativePath starts with a slash and serverURL ends with a slash for clean joining.
+        // However, serverURL.absoluteString usually includes the trailing slash.
+        // And relativePath is constructed with a leading slash.
+        let waczFileSourceURLString = "\(serverURL.absoluteString.dropLast())\(relativePath)"
         
-        if let url = URL(string: archiveIndexURL) {
+        guard let encodedWaczSourceURL = waczFileSourceURLString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
+            showErrorMessage("Failed to encode WACZ source URL")
+            return
+        }
+        
+        // Construct the final URL for index.html with the source parameter
+        let archiveIndexURLString = "\(serverURL.absoluteString)index.html?source=\(encodedWaczSourceURL)"
+        
+        if let url = URL(string: archiveIndexURLString) {
             var request = URLRequest(url: url)
             request.cachePolicy = .reloadIgnoringLocalCacheData
             request.timeoutInterval = 10.0

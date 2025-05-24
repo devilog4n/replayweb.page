@@ -12,7 +12,7 @@ class WebServerManager {
     private(set) var serverURL: URL?
     
     // Default port for the server
-    private let serverPort: UInt = 8080
+    private let serverPort: UInt = 8090
     
     // MARK: - Initialization
     private init() {
@@ -157,13 +157,27 @@ class WebServerManager {
         }
         
         // Add handler for static files from www directory
+        // Serve index.html and other assets from the root
         server.addGETHandler(
             forBasePath: "/",
             directoryPath: finalWWWPath,
-            indexFilename: "index.html",
+            indexFilename: "index.html", // Ensure index.html is served at the root
             cacheAge: 0,
             allowRangeRequests: true
         )
+
+        // Add specific handler for sw.js at the root
+        // This ensures the Service Worker has the correct scope
+        let swJsPath = (finalWWWPath as NSString).appendingPathComponent("sw.js")
+        server.addHandler(forMethod: "GET", path: "/sw.js", request: GCDWebServerRequest.self) { _ in
+            // Check if sw.js exists at the path
+            if FileManager.default.fileExists(atPath: swJsPath) {
+                return GCDWebServerFileResponse(file: swJsPath, byteRange: nil)
+            } else {
+                print("WebServerManager: Error - sw.js not found at \(swJsPath)")
+                return GCDWebServerResponse(statusCode: 404)
+            }
+        }
         
         // Add handler for user archives
         server.addGETHandler(
@@ -215,15 +229,32 @@ class WebServerManager {
             object: nil
         )
     }
+
+    // Add ensureServerRunning method to match AppDelegate usage
+    func ensureServerRunning() {
+        if !isRunning {
+            print("WebServerManager: Server was not running, attempting to start.")
+            _ = startServer()
+        } else {
+            print("WebServerManager: Server is already running.")
+        }
+    }
     
     @objc private func applicationDidEnterBackground() {
         print("WebServerManager: App entered background, stopping server")
-        stopServer()
+        // As per PRD, server should continue running in background if possible
+        // stopServer() // Original behavior was to stop. Let's keep it running.
+        // Instead, we'll rely on the AppDelegate's background task management
+        ensureServerRunning() 
     }
     
     @objc private func applicationWillEnterForeground() {
-        print("WebServerManager: App will enter foreground, starting server")
-        startServer()
+        print("WebServerManager: App will enter foreground, ensuring server is running")
+        // Ensure server is running when app comes to foreground
+        // If it was stopped for some reason (e.g. by OS), restart it.
+        if !isRunning {
+            startServer()
+        }
     }
     
     /// Helper method to find the project directory by navigating up from a given path

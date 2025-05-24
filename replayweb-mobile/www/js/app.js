@@ -593,6 +593,36 @@ function setupMockFileSystem() {
   }
 }
 
+// Function to set and load an archive URL, called from native code
+window.setArchiveURL = function(archivePath) {
+  console.log(`setArchiveURL called with: ${archivePath}`);
+
+  const fullUrl = 'http://localhost:8090' + archivePath;
+  const archiveId = archivePath; // Use the path as a unique ID
+
+  if (window.useServiceWorker && window.ServiceWorkerBridge && navigator.serviceWorker) {
+    console.log(`Attempting to register archive with Service Worker: ${archiveId}`);
+    window.ServiceWorkerBridge.registerArchive(archiveId, fullUrl, 0) // Assuming size 0 is acceptable
+      .then(response => {
+        if (response && response.success) {
+          console.log(`Archive registered with Service Worker: ${archiveId}`);
+          window.location.href = 'index.html?waczArchive=' + encodeURIComponent(archiveId);
+        } else {
+          console.error(`Failed to register archive with Service Worker: ${archiveId}. Falling back to direct loading. Response:`, response);
+          window.location.href = 'index.html?source=' + encodeURIComponent(fullUrl);
+        }
+      })
+      .catch(error => {
+        console.error(`Error registering archive ${archiveId} with Service Worker:`, error);
+        console.log(`Falling back to direct loading for: ${fullUrl}`);
+        window.location.href = 'index.html?source=' + encodeURIComponent(fullUrl);
+      });
+  } else {
+    console.log(`Service Worker not used or not available. Loading directly: ${fullUrl}`);
+    window.location.href = 'index.html?source=' + encodeURIComponent(fullUrl);
+  }
+};
+
 // Initialize the AppManager if not already set up
 if (!window.AppManager) {
   window.AppManager = {
