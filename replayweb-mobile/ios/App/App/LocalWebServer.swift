@@ -127,6 +127,12 @@ class LocalWebServer {
             allowRangeRequests: true
         )
         
+        // Add special handler for sw.js at the root to enable proper service worker scope
+        server.addHandler(forMethod: "GET", path: "/sw.js", request: GCDWebServerRequest.self) { _ in
+            let swJsPath = (assetsPath as NSString).appendingPathComponent("sw.js")
+            return GCDWebServerFileResponse(file: swJsPath, byteRange: nil)
+        }
+        
         // Add handler for the root path to redirect to /replay/
         server.addHandler(forMethod: "GET", path: "/", request: GCDWebServerRequest.self) { request in
             return GCDWebServerResponse(redirect: URL(string: "/replay/")!, permanent: false)

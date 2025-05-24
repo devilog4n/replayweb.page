@@ -112,13 +112,14 @@ window.ServiceWorkerBridge = (function() {
       
       // Register the service worker
       // Use multiple possible paths to ensure it works in all environments
+      // Root /sw.js path is critical for controlling /archives/ requests
       const possiblePaths = [
-        './js/sw-wacz.js',     // Relative path from current directory
-        'js/sw-wacz.js',       // Alternate relative path
-        '/js/sw-wacz.js',      // Absolute path from domain root
-        '../js/sw-wacz.js',    // One directory up
-        '../../js/sw-wacz.js', // Two directories up
-        window.location.pathname + 'js/sw-wacz.js',  // Based on current path
+        '/sw.js',             // Absolute root path (PREFERRED for full scope)
+        './sw.js',            // Relative path from current directory
+        '../sw.js',           // One directory up
+        './js/sw-wacz.js',    // Fallback to original paths
+        'js/sw-wacz.js',      // Alternate relative path
+        '/js/sw-wacz.js',     // Absolute path from domain root
       ];
       
       let registered = false;
@@ -133,7 +134,7 @@ window.ServiceWorkerBridge = (function() {
           
           // For iOS, use special registration settings to prevent network process crashes
           const registrationOptions = {
-            scope: './',
+            scope: '/',          // ROOT SCOPE is critical for controlling /archives/ requests
             updateViaCache: 'none' // Important for WKWebView compatibility
           };
           
