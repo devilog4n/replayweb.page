@@ -1,0 +1,436 @@
+<!doctype html>
+<html class="no-overflow">
+  <head>
+    <link rel="manifest" href="./webmanifest.json" />
+    <title>ReplayWeb.page Mobile</title>
+    <meta property="og:site_name" content="ReplayWeb.page" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#2962ff" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    
+    <!-- CSS for loading screen, archive browser, and mobile UX improvements -->
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: #f9f9f9;
+        overscroll-behavior: none;
+      }
+      
+      .no-overflow {
+        overflow: hidden;
+        position: fixed;
+        width: 100%;
+        height: 100%;
+      }
+      
+      #app-loading {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background-color: #2962ff;
+        color: white;
+        z-index: 9999;
+        transition: opacity 0.5s ease-out;
+      }
+      
+      #app-loading.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      
+      .spinner {
+        width: 40px;
+        height: 40px;
+        margin-bottom: 20px;
+        border: 4px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: white;
+        animation: spin 1s ease-in-out infinite;
+      }
+      
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+      
+      /* ReplayWeb.page UI specific overrides for mobile */
+      replay-app-main {
+        height: 100%;
+      }
+      
+      /* Archive Browser UI */
+      #archive-browser {
+        display: none; /* Hidden by default, shown via JS */
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        flex-direction: column;
+        background-color: #f9f9f9;
+        z-index: 100;
+        padding: 0;
+        overflow: hidden;
+      }
+      
+      .archive-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px;
+        background-color: #2962ff;
+        color: white;
+        font-weight: bold;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+      
+      .archive-header h1 {
+        font-size: 20px;
+        margin: 0;
+      }
+      
+      .archive-actions {
+        display: flex;
+        gap: 8px;
+      }
+      
+      .archive-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 12px;
+      }
+      
+      .archive-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      
+      .archive-item {
+        display: flex;
+        align-items: center;
+        background-color: white;
+        border-radius: 8px;
+        padding: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+      
+      .archive-item:active {
+        transform: scale(0.98);
+      }
+      
+      .archive-item.loading,
+      .archive-item.error,
+      .archive-item.empty {
+        justify-content: center;
+        padding: 24px;
+        color: #666;
+        font-style: italic;
+        cursor: default;
+      }
+      
+      .archive-item.error {
+        color: #e53935;
+      }
+      
+      .archive-icon {
+        font-size: 24px;
+        margin-right: 12px;
+        width: 30px;
+        text-align: center;
+      }
+      
+      .archive-details {
+        flex: 1;
+      }
+      
+      .archive-name {
+        font-weight: bold;
+        margin-bottom: 4px;
+      }
+      
+      .archive-meta {
+        font-size: 12px;
+        color: #666;
+      }
+      
+      .archive-actions {
+        display: flex;
+        gap: 8px;
+      }
+      
+      .archive-footer {
+        display: flex;
+        justify-content: space-around;
+        padding: 16px;
+        background-color: white;
+        border-top: 1px solid #e0e0e0;
+      }
+      
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #2962ff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 8px 16px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+      }
+      
+      .btn:hover {
+        background-color: #1e50cf;
+      }
+      
+      .btn-secondary {
+        background-color: #e0e0e0;
+        color: #333;
+      }
+      
+      .btn-secondary:hover {
+        background-color: #c0c0c0;
+      }
+      
+      .no-archives-message {
+        display: none;
+        text-align: center;
+        padding: 40px 20px;
+        color: #666;
+      }
+      
+      .no-archives-message h2 {
+        margin-bottom: 12px;
+      }
+      
+      .no-archives-message p {
+        margin-bottom: 20px;
+      }
+    </style>
+    
+    <!-- First load our plugin registration script -->
+    <script src="./js/capacitor-plugins.js"></script>
+    
+    <!-- iOS Platform Detection and Optimization -->
+    <script>
+      // Create a global namespace for our app to avoid variable duplication issues
+      window.ReplayMobile = window.ReplayMobile || {};
+      
+      // Platform detection
+      window.ReplayMobile.isIOS = false;
+      window.ReplayMobile.iOSVersion = 0;
+      
+      if (typeof navigator !== 'undefined') {
+        const userAgent = navigator.userAgent;
+        if (/iPad|iPhone|iPod/.test(userAgent)) {
+          window.ReplayMobile.isIOS = true;
+          
+          // Extract iOS version
+          const match = userAgent.match(/OS\s+(\d+)_(\d+)/i);
+          if (match && match.length > 2) {
+            window.ReplayMobile.iOSVersion = parseFloat(`${match[1]}.${match[2]}`);
+            console.log(`📱 iOS ${window.ReplayMobile.iOSVersion} detected`);
+            
+            // For iOS < 16.4, disable service workers automatically
+            if (window.ReplayMobile.iOSVersion < 16.4) {
+              console.log('📱 iOS < 16.4 detected, service workers will be limited');
+            }
+          }
+        }
+      }
+    </script>
+    
+    <!-- iOS WebKit Networking Configuration -->
+    <script>
+      // Special handling for WKWebView networking issues
+      if (window.ReplayMobile.isIOS) {
+        // Add timing buffer for WebKit initialization
+        document.addEventListener('DOMContentLoaded', function() {
+          // Small delay to ensure WebKit processes are initialized
+          setTimeout(function() {
+            console.log('📱 iOS WebKit initialization complete');
+          }, 500);
+        });
+      }
+    </script>
+    
+    <!-- Service Worker Bypass BEFORE loading the ReplayWeb.page UI -->
+    <script>
+      // Initial configuration - will be overridden if service workers are enabled
+      window.useServiceWorker = false;
+        
+      // Only bypass service workers if they're not supported or explicitly disabled
+      if (!('serviceWorker' in navigator) || window.useServiceWorker === false) {
+          console.log('⚠️ Service Workers bypassed or not supported');
+          window.ServiceWorkerContainer = { register: function() { return Promise.resolve(); } };
+          window.navigator.serviceWorker = window.ServiceWorkerContainer;
+          window.allowServiceWorkerBypass = true;
+          window.wabacDisableServiceWorker = true;
+          window.forceNoServiceWorker = true;
+      } else {
+          console.log('✅ Service Workers supported and enabled');
+          window.allowServiceWorkerBypass = false;
+          window.wabacDisableServiceWorker = false;
+          window.forceNoServiceWorker = false;
+      }
+      
+      // iOS input system workarounds
+      if (window.ReplayMobile.isIOS) {
+        // Disable automatic input focusing on iOS to prevent RTIInputSystemClient errors
+        document.addEventListener('focusin', function(e) {
+          // Add a small delay before focusing to give WebKit time to initialize input handlers
+          if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+            setTimeout(function() {
+              // Re-focus after a brief delay
+              e.target.focus();
+            }, 100);
+          }
+        }, true);
+      }
+    </script>
+    
+    <!-- Service Worker Bridge Script -->
+    <script src="js/service-worker-bridge.js"></script>
+    
+    <script>
+      // Configure ReplayWeb.page with mobile-optimized settings
+      window.replaywebConfig = {
+        ui: {
+          logoImg: null,
+          logoUrl: null,
+          title: "ReplayWeb.page Mobile",
+          showCollectionInfo: true
+        },
+        appPrefix: "capacitor://localhost/",
+        embedded: true,
+        noWebWorker: true,
+        noCache: false,  // Enable caching for better performance
+        behaviors: {
+          autoplay: true,
+          keyboard: true,
+          fill: true,
+          nav: true
+        }
+      };
+      
+      // Handle URL params that might be passed to control the viewer
+      function getURLParams() {
+        const params = {};
+        const urlParams = new URLSearchParams(window.location.search);
+        for (const [key, value] of urlParams.entries()) {
+          params[key] = value;
+        }
+        return params;
+      }
+      
+      // Detect if we're already viewing an archive
+      const urlParams = getURLParams();
+      const isViewingArchive = urlParams.source || urlParams.url || urlParams.warc;
+    </script>
+    
+    <!-- Load the error handler first, followed by other application scripts -->
+    <script src="./js/error-handler.js"></script>
+    <script src="./js/performance-manager.js"></script>
+    <script src="./js/server.js"></script>
+    <script src="./js/file-manager.js"></script>
+    <script src="./js/app.js"></script>
+    <script src="./js/archive-browser.js"></script>
+    <script src="./js/archive-viewer.js"></script>
+    
+    <!-- Load the ReplayWeb.page UI -->
+    <script src="./ui.js"></script>
+  </head>
+  <body>
+    <!-- Loading screen that will be hidden once the app is ready -->
+    <div id="app-loading">
+      <div class="spinner"></div>
+      <h2>Loading ReplayWeb.page...</h2>
+      <p id="loading-status">Starting server...</p>
+    </div>
+    
+    <!-- Archive Browser UI - shown before viewing an archive -->
+    <div id="archive-browser">
+      <div class="archive-header">
+        <h1>ReplayWeb.page Archives</h1>
+        <div class="archive-actions">
+          <button class="btn btn-secondary refresh-button" title="Refresh Archives">🔄</button>
+        </div>
+      </div>
+      
+      <div class="archive-content">
+        <div class="archive-list">
+          <!-- Archive items will be populated here by JavaScript -->
+        </div>
+        
+        <div class="no-archives-message">
+          <h2>No Archives Found</h2>
+          <p>Import WARC, WARC.GZ, or WACZ files to view web archives on your device.</p>
+          <button class="btn import-button">Import Archive</button>
+        </div>
+      </div>
+      
+      <div class="archive-footer">
+        <button class="btn import-button">Import Archive</button>
+      </div>
+    </div>
+    
+    <!-- ReplayWeb.page viewer component -->
+    <replay-app-main></replay-app-main>
+    
+    <script>
+      // Handle the loading screen
+      const loadingScreen = document.getElementById('app-loading');
+      const loadingStatus = document.getElementById('loading-status');
+      
+      // Update loading status
+      function updateLoadingStatus(message) {
+        if (loadingStatus) {
+          loadingStatus.textContent = message;
+        }
+      }
+      
+      // Hide loading screen
+      function hideLoadingScreen() {
+        if (loadingScreen) {
+          loadingScreen.classList.add('hidden');
+          // Remove it from DOM after transition
+          setTimeout(() => {
+            loadingScreen.remove();
+          }, 600);
+        }
+      }
+      
+      // If we're already viewing an archive, hide the loading screen
+      if (isViewingArchive) {
+        // Short delay to let the UI initialize
+        setTimeout(hideLoadingScreen, 500);
+      }
+      
+      // Listen for app-ready event from ReplayWeb.page
+      document.addEventListener('replay-app-ready', function() {
+        console.log('ReplayWeb.page viewer is ready');
+        hideLoadingScreen();
+      });
+      
+      // Fallback to hide loading screen if it takes too long
+      setTimeout(function() {
+        if (document.getElementById('app-loading')) {
+          console.log('Fallback: hiding loading screen after timeout');
+          hideLoadingScreen();
+        }
+      }, 8000);
+    </script>
+  </body>
+</html>
